@@ -17,7 +17,6 @@ type mainTest struct {
 	responseFromGateway string
 	requestUrl          string
 	backendUrl          string
-	backendHost         string
 }
 
 var (
@@ -75,7 +74,7 @@ var (
 		},
 	}
 
-	testCases2 = []mainTest{
+	testCases2 = []*mainTest{
 		{
 			title: "serviceWithPrefixNoPath",
 			service: servicediscovery.Service{
@@ -151,7 +150,7 @@ func TestGateway(t *testing.T) {
 	backendServer := httptest.NewServer(mux)
 
 	for _, tc := range testCases2 {
-		tc.backendHost = backendServer.URL
+		tc.service.Address = backendServer.URL
 	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, request *http.Request) {
@@ -166,22 +165,16 @@ func TestGateway(t *testing.T) {
 	defer backendServer.Close()
 
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
-	//gateway := NewGateway(&testConfig2)
+	gateway := NewGateway(&testConfig2)
 
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 
-	//for _, tc := range testCases2 {
-	//	tc := tc
-	//
-	//	AddService(gateway)(func(path string, pathPrefix string, methods []string, handler http.Handler) (s string, e error) {
-	//		destinationUrl, _ := url.Parse(targetUrl)
-	//		targetUrl = utils.SingleJoiningSlash(backendServer.URL, destinationUrl.Path)
-	//		revProxy := handlers.NewReverseProxy(targetUrl, targetUrlPath, targetUrlPrefix)
-	//		r := r.AddRoute(dynRouter)(path, pathPrefix, methods, revProxy)
-	//		return r.UID
-	//	})(tc.service)
-	//}
+	for _, tc := range testCases2 {
+		tc := tc
+
+		AddService(gateway)(r.AddRoute(dynRouter))(tc.service)
+	}
 
 	t.Run("group", func(t *testing.T) {
 		for _, tc := range testCases2 {
