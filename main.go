@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bifrost/config"
 	"bifrost/filters"
 	r "bifrost/router"
 	"bifrost/servicediscovery/provider/kubernetes"
@@ -23,9 +24,9 @@ func main() {
 	removeRouteFunc := r.RemoveRoute(dynRouter)
 
 	kubernetes.Compose(
-		kubernetes.SubscribeOnAddService(AddEndpoint(gateway)(addRouteFunc)),
-		kubernetes.SubscribeOnRemoveService(RemoveEndpoint(gateway)(removeRouteFunc)),
-		kubernetes.SubscribeOnUpdateService(UpdateEndpoint(gateway)(addRouteFunc, removeRouteFunc)),
+		kubernetes.SubscribeOnAddService(AddService(gateway)(addRouteFunc)),
+		kubernetes.SubscribeOnRemoveService(RemoveService(gateway)(removeRouteFunc)),
+		kubernetes.SubscribeOnUpdateService(UpdateService(gateway)(addRouteFunc, removeRouteFunc)),
 		kubernetes.Start,
 	)(provider)
 
@@ -35,7 +36,7 @@ func main() {
 	}
 }
 
-func setLogging(config *Config) {
+func setLogging(config *config.Config) {
 	log.SetFormatter(&log.JSONFormatter{})
 	//log.SetReportCaller(true)
 	level, e := log.ParseLevel(config.LogLevel)
@@ -44,6 +45,6 @@ func setLogging(config *Config) {
 	}
 }
 
-func getConfiguration() *Config {
-	return LoadConfig()
+func getConfiguration() *config.Config {
+	return config.LoadConfig()
 }

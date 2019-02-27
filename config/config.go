@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/json"
@@ -23,6 +23,7 @@ type Endpoint struct {
 	DownstreamPathPrefix string   `json:"downstream_path_prefix"`
 	ServiceName          string   `json:"service_name"`
 	Methods              []string `json:"methods"`
+	//Middlewares          []Middleware `json:"middlewares"`
 }
 
 func LoadConfig() *Config {

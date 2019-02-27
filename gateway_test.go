@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bifrost/config"
 	"bifrost/servicediscovery"
 	"net/http"
 	"testing"
@@ -15,10 +16,10 @@ type gateTest struct {
 }
 
 var (
-	testConfig1 = Config{
+	testConfig1 = config.Config{
 		DownstreamPathPrefix: "",
 		UpstreamPathPrefix:   "/api",
-		Endpoints: []Endpoint{
+		Endpoints: []config.Endpoint{
 			{
 				UpstreamPathPrefix:   "/api/v1",
 				DownstreamPathPrefix: "/users",
@@ -131,11 +132,8 @@ var (
 	}
 )
 
-func TestAddEndpoint(t *testing.T) {
+func TestAddService(t *testing.T) {
 	gateway := NewGateway(&testConfig1)
-
-	//dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	//})
 
 	t.Run("group", func(t *testing.T) {
 		for _, tc := range testCases1 {
@@ -143,18 +141,19 @@ func TestAddEndpoint(t *testing.T) {
 			t.Run(tc.title, func(t *testing.T) {
 				t.Parallel()
 
-				AddEndpoint(gateway)(func(path string, pathPrefix string, methods []string, handler http.Handler) (s string, e error) {
-					if path != tc.expectedPath {
-						t.Fatalf("expectedPath %v, but got %v", tc.expectedPath, path)
-					}
-					if pathPrefix != tc.expectedPathPrefix {
-						t.Fatalf("expectedPathPrefix %v, but got %v", tc.expectedPathPrefix, pathPrefix)
-					}
-					//if targetUrl != tc.expectedDestination {
-					//	t.Fatalf("expectedDestination %v, but got %v", tc.expectedDestination, targetUrl)
-					//}
+				endp := internalAddService(gateway, tc.service, func(path string, pathPrefix string, methods []string, handler http.Handler) (s string, e error) {
 					return "", nil
-				})(tc.service)
+				})
+
+				if endp[0].DownstreamPath != tc.expectedPath {
+					t.Fatalf("expectedPath %v, but got %v", tc.expectedPath, endp[0].DownstreamPath)
+				}
+				if endp[0].DownstreamPathPrefix != tc.expectedPathPrefix {
+					t.Fatalf("expectedPathPrefix %v, but got %v", tc.expectedPathPrefix, endp[0].DownstreamPathPrefix)
+				}
+				if endp[0].UpstreamURL != tc.expectedDestination {
+					t.Fatalf("expectedDestination %v, but got %v", tc.expectedDestination, endp[0].UpstreamURL)
+				}
 			})
 		}
 	})

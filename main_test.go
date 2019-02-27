@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bifrost/handlers"
+	"bifrost/config"
 	r "bifrost/router"
 	"bifrost/servicediscovery"
-	"bifrost/utils"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 )
 
@@ -19,13 +17,14 @@ type mainTest struct {
 	responseFromGateway string
 	requestUrl          string
 	backendUrl          string
+	backendHost         string
 }
 
 var (
-	testConfig2 = Config{
+	testConfig2 = config.Config{
 		DownstreamPathPrefix: "",
 		UpstreamPathPrefix:   "/api",
-		Endpoints: []Endpoint{
+		Endpoints: []config.Endpoint{
 			{
 				UpstreamPathPrefix:   "/api/v1/users",
 				UpstreamPath:         "",
@@ -150,6 +149,11 @@ func TestGateway(t *testing.T) {
 
 	mux := http.NewServeMux()
 	backendServer := httptest.NewServer(mux)
+
+	for _, tc := range testCases2 {
+		tc.backendHost = backendServer.URL
+	}
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, request *http.Request) {
 		for _, tc := range testCases2 {
 			if tc.backendUrl == request.RequestURI {
@@ -162,14 +166,15 @@ func TestGateway(t *testing.T) {
 	defer backendServer.Close()
 
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
-	gateway := NewGateway(&testConfig2)
+	//gateway := NewGateway(&testConfig2)
 
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 
 	//for _, tc := range testCases2 {
 	//	tc := tc
-	//	AddEndpoint(gateway)((func(path string, pathPrefix string, methods []string, handler http.Handler) (s string, e error) {
+	//
+	//	AddService(gateway)(func(path string, pathPrefix string, methods []string, handler http.Handler) (s string, e error) {
 	//		destinationUrl, _ := url.Parse(targetUrl)
 	//		targetUrl = utils.SingleJoiningSlash(backendServer.URL, destinationUrl.Path)
 	//		revProxy := handlers.NewReverseProxy(targetUrl, targetUrlPath, targetUrlPrefix)
