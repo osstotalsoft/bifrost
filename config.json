@@ -1,0 +1,34 @@
+{
+  "version": "2",
+  "name": "My lovely gateway",
+  "port": 8000,
+  "in_cluster": false,
+  "log_level": "DEBUG",
+  "metrics": {
+    "enabled": true,
+    "collection_time": "60s",
+    "proxy_disabled": false,
+    "router_disabled": false,
+    "backend_disabled": false,
+    "endpoint_disabled": false,
+    "listen_address": "8090"
+  },
+  "upstream_path_prefix": "/api",
+  "downstream_path_prefix": "",
+  "endpoints": [
+    {
+      "upstream_path": "",
+      "upstream_path_prefix": "/api",
+      "downstream_path_prefix": "/leasing/v1",
+      "service_name": "lsng-api"
+    },
+    {
+      "upstream_path": "/api/{version}/offers/{offerId}/{offerSiteId}",
+      "methods": [
+        "POST",
+        "GET"
+      ],
+      "service_name": "lsng-api2.lsng"
+    }
+  ]
+}
