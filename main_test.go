@@ -1,9 +1,9 @@
 package main
 
 import (
-	r "api-gateway/router"
-	"api-gateway/servicediscovery"
-	"api-gateway/utils"
+	r "bifrost/router"
+	"bifrost/servicediscovery"
+	"bifrost/utils"
 	"io/ioutil"
 	"math/rand"
 	"net/http"

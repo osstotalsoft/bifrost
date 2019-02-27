@@ -1,7 +1,7 @@
 package in_memory_registry
 
 import (
-	"api-gateway/servicediscovery"
+	"bifrost/servicediscovery"
 	"sync"
 )
 

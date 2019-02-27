@@ -1,7 +1,7 @@
 package router
 
 import (
-	"api-gateway/utils"
+	"bifrost/utils"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"net/http"

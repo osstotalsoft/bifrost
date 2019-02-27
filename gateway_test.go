@@ -1,8 +1,8 @@
 package main
 
 import (
-	r "api-gateway/router"
-	"api-gateway/servicediscovery"
+	r "bifrost/router"
+	"bifrost/servicediscovery"
 	"net/http"
 	"testing"
 )

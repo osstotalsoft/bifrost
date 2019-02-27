@@ -1,8 +1,8 @@
 package main
 
 import (
-	"api-gateway/servicediscovery"
-	"api-gateway/utils"
+	"bifrost/servicediscovery"
+	"bifrost/utils"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"

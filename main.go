@@ -1,10 +1,10 @@
 package main
 
 import (
-	"api-gateway/filters"
-	"api-gateway/handlers"
-	r "api-gateway/router"
-	"api-gateway/servicediscovery/provider/kubernetes"
+	"bifrost/filters"
+	"bifrost/handlers"
+	r "bifrost/router"
+	"bifrost/servicediscovery/provider/kubernetes"
 	log "github.com/sirupsen/logrus"
 )
 

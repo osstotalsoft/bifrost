@@ -1,7 +1,7 @@
 package provider
 
 import (
-	"api-gateway/servicediscovery"
+	"bifrost/servicediscovery"
 	log "github.com/sirupsen/logrus"
 )
 
