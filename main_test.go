@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bifrost/handlers"
 	r "bifrost/router"
 	"bifrost/servicediscovery"
 	"bifrost/utils"
@@ -8,7 +9,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httputil"
 	"net/url"
 	"testing"
 )
@@ -167,16 +167,16 @@ func TestGateway(t *testing.T) {
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 
-	for _, tc := range testCases2 {
-		tc := tc
-		AddEndpoint(gateway)(func(path, pathPrefix string, methods []string, targetUrl, targetUrlPath, targetUrlPrefix string) string {
-			destinationUrl, _ := url.Parse(targetUrl)
-			targetUrl = utils.SingleJoiningSlash(backendServer.URL, destinationUrl.Path)
-			revProxy := &httputil.ReverseProxy{Director: r.GetDirector(targetUrl, targetUrlPath, targetUrlPrefix)}
-			r := r.AddRoute(dynRouter)(path, pathPrefix, methods, revProxy)
-			return r.UID
-		})(tc.service)
-	}
+	//for _, tc := range testCases2 {
+	//	tc := tc
+	//	AddEndpoint(gateway)((func(path string, pathPrefix string, methods []string, handler http.Handler) (s string, e error) {
+	//		destinationUrl, _ := url.Parse(targetUrl)
+	//		targetUrl = utils.SingleJoiningSlash(backendServer.URL, destinationUrl.Path)
+	//		revProxy := handlers.NewReverseProxy(targetUrl, targetUrlPath, targetUrlPrefix)
+	//		r := r.AddRoute(dynRouter)(path, pathPrefix, methods, revProxy)
+	//		return r.UID
+	//	})(tc.service)
+	//}
 
 	t.Run("group", func(t *testing.T) {
 		for _, tc := range testCases2 {

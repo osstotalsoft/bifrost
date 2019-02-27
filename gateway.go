@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bifrost/handlers"
 	"bifrost/servicediscovery"
 	"bifrost/utils"
 	"net/http"
@@ -24,11 +25,15 @@ func NewGateway(config *Config) *Gateway {
 	if config == nil {
 		log.Panicf("Gateway: Must provide a configuration file")
 	}
-	return &Gateway{config: config}
+	return &Gateway{
+		config:      config,
+		preFilters:  []PreFilterFunc{},
+		postFilters: []PostFilterFunc{},
+	}
 }
 
 type AddEndpointFunc func(addRouteFunc AddRouteFunc) func(service servicediscovery.Service)
-type AddRouteFunc func(path string, pathPrefix string, methods []string, targetUrl, targetUrlPath, targetUrlPrefix string) string
+type AddRouteFunc func(path string, pathPrefix string, methods []string, handler http.Handler) (string, error)
 type UpdateEndpointFunc func(addRouteFunc AddRouteFunc, removeRouteFunc func(routeId string)) func(oldService servicediscovery.Service, newService servicediscovery.Service)
 
 func AddEndpoint(gate *Gateway) AddEndpointFunc {
@@ -41,23 +46,21 @@ func AddEndpoint(gate *Gateway) AddEndpointFunc {
 
 func AddPreFilter(gate *Gateway) func(f PreFilterFunc) {
 	return func(f PreFilterFunc) {
-		router.preFilters = append(router.preFilters, f)
+		gate.preFilters = append(gate.preFilters, f)
 	}
 }
 
 func AddPostFilter(gate *Gateway) func(f PostFilterFunc) {
 	return func(f PostFilterFunc) {
-		router.postFilters = append(router.postFilters, f)
+		gate.postFilters = append(gate.postFilters, f)
 	}
 }
 
 func UpdateEndpoint(gate *Gateway) UpdateEndpointFunc {
 	return func(addRouteFunc AddRouteFunc, removeRouteFunc func(routeId string)) func(oldService servicediscovery.Service, newService servicediscovery.Service) {
 		return func(oldService servicediscovery.Service, newService servicediscovery.Service) {
-
 			//removing routes
 			internalRemoveRoute(gate, oldService, removeRouteFunc)
-
 			//adding routes
 			internalAddRoute(gate, newService, addRouteFunc)
 		}
@@ -76,16 +79,6 @@ func internalRemoveRoute(gate *Gateway, oldService servicediscovery.Service, rem
 	})
 }
 
-func runPreFilters(preFilters []PreFilterFunc, request *http.Request) error {
-	for _, filter := range preFilters {
-		err := filter(request)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func internalAddRoute(gate *Gateway, service servicediscovery.Service, addRouteFunc AddRouteFunc) {
 	endPoints := findEndpoints(gate.config.Endpoints, service.Resource)
 	var routes []string
@@ -101,7 +94,8 @@ func internalAddRoute(gate *Gateway, service servicediscovery.Service, addRouteF
 		}
 
 		targetUrl := utils.SingleJoiningSlash(service.Address, utils.SingleJoiningSlash(upstreamPathPrefix, endp.UpstreamPath))
-		routeId := addRouteFunc(endp.DownstreamPath, pathPrefix, endp.Methods, targetUrl, endp.UpstreamPath, upstreamPathPrefix)
+		revProxy := handlers.NewReverseProxy(targetUrl, endp.UpstreamPath, upstreamPathPrefix)
+		routeId, _ := addRouteFunc(endp.DownstreamPath, pathPrefix, endp.Methods, revProxy)
 		routes = append(routes, routeId)
 	}
 
@@ -109,7 +103,8 @@ func internalAddRoute(gate *Gateway, service servicediscovery.Service, addRouteF
 	if len(endPoints) == 0 {
 		pathPrefix := utils.SingleJoiningSlash(gate.config.DownstreamPathPrefix, service.Resource)
 		targetUrl := utils.SingleJoiningSlash(service.Address, gate.config.UpstreamPathPrefix)
-		routeId := addRouteFunc("", pathPrefix, nil, targetUrl, "", gate.config.UpstreamPathPrefix)
+		revProxy := handlers.NewReverseProxy(targetUrl, "", gate.config.UpstreamPathPrefix)
+		routeId, _ := addRouteFunc("", pathPrefix, nil, revProxy)
 		routes = append(routes, routeId)
 		log.Infof("Gateway: Applied default configuration for service %v", service)
 	}
@@ -126,15 +121,12 @@ func RemoveEndpoint(gate *Gateway) func(removeRouteFunc func(routeId string)) fu
 }
 
 func findEndpoints(endpoints []Endpoint, serviceName string) []Endpoint {
-
 	var result []Endpoint //endpoints[:0]
-
 	for _, endp := range endpoints {
 		if endp.ServiceName == serviceName {
 			result = append(result, endp)
 		}
 	}
-
 	return result
 }
 
@@ -148,12 +140,25 @@ func handleFilterError(responseWriter http.ResponseWriter, request *http.Request
 }
 
 func GatewayListenAndServe(gate *Gateway, handler http.Handler) error {
-	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port), func(w http.ResponseWriter, r *http.Request) {
-		err := runPreFilters(router.preFilters, r)
+	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port),
+		http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			writer.Header().Set("X-Gateway", "GoGateway")
+
+			err := runPreFilters(gate.preFilters, request)
+			if err != nil {
+				handleFilterError(writer, request, err)
+				return
+			}
+			handler.ServeHTTP(writer, request)
+		}))
+}
+
+func runPreFilters(preFilters []PreFilterFunc, request *http.Request) error {
+	for _, filter := range preFilters {
+		err := filter(request)
 		if err != nil {
-			handleFilterError(writer, newReq, err)
-			return
+			return err
 		}
-		handler()
-	})
+	}
+	return nil
 }

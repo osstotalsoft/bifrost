@@ -2,7 +2,6 @@ package main
 
 import (
 	"bifrost/filters"
-	"bifrost/handlers"
 	r "bifrost/router"
 	"bifrost/servicediscovery/provider/kubernetes"
 	log "github.com/sirupsen/logrus"
@@ -17,21 +16,16 @@ func main() {
 	//registry := in_memory_registry.NewInMemoryStore()
 	gateway := NewGateway(config)
 
-	r.AddPreFilter(dynRouter)(filters.AuthorizationFilter())
+	AddPreFilter(gateway)(filters.AuthorizationFilter())
 	//r.AddPostFilter(dynRouter)(filters.AuthorizationFilter())
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
-	addEndpointFunc := func(path, pathPrefix string, methods []string, targetUrl, targetUrlPath, targetUrlPrefix string) string {
-		revProxy := handlers.NewReverseProxy(r.GetDirector(targetUrl, targetUrlPath, targetUrlPrefix))
-		rt := addRouteFunc(path, pathPrefix, methods, revProxy)
-		return rt.UID
-	}
 
 	kubernetes.Compose(
-		kubernetes.SubscribeOnAddService(AddEndpoint(gateway)(addEndpointFunc)),
+		kubernetes.SubscribeOnAddService(AddEndpoint(gateway)(addRouteFunc)),
 		kubernetes.SubscribeOnRemoveService(RemoveEndpoint(gateway)(removeRouteFunc)),
-		kubernetes.SubscribeOnUpdateService(UpdateEndpoint(gateway)(addEndpointFunc, removeRouteFunc)),
+		kubernetes.SubscribeOnUpdateService(UpdateEndpoint(gateway)(addRouteFunc, removeRouteFunc)),
 		kubernetes.Start,
 	)(provider)
 

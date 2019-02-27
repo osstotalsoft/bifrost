@@ -2,10 +2,11 @@ package router
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"sync"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -38,14 +39,12 @@ func GetHandler(router *dynamicRouter) http.Handler {
 			routeMatch.Vars,
 		})
 
-		newReq := request.WithContext(ctx)
-
-		route.handler.ServeHTTP(writer, newReq)
+		route.handler.ServeHTTP(writer, request.WithContext(ctx))
 	})
 }
 
-func AddRoute(router *dynamicRouter) func(path, pathPrefix string, methods []string, handler http.Handler) Route {
-	return func(path, pathPrefix string, methods []string, handler http.Handler) Route {
+func AddRoute(router *dynamicRouter) func(path, pathPrefix string, methods []string, handler http.Handler) (string, error) {
+	return func(path, pathPrefix string, methods []string, handler http.Handler) (string, error) {
 		route := Route{
 			Path:       path,
 			PathPrefix: pathPrefix,
@@ -55,22 +54,32 @@ func AddRoute(router *dynamicRouter) func(path, pathPrefix string, methods []str
 		}
 
 		route.matcher = router.routeMatcher(route)
-
-		//check for multiple registrations
-		router.routes.Range(func(key, value interface{}) bool {
-			r := value.(Route)
-			if r.String() == route.String() {
-				log.Error("DynamicRouter: multiple registrations for : " + route.String())
-				return false
-			}
-			return true
-		})
-
-		router.routes.Store(route.UID, route)
-		log.Infof("DynamicRouter: Added new route: id: %s; pathPrefix: %s; path %s", route.UID, route.PathPrefix, route.Path)
-
-		return route
+		err := validateRoute(router, route)
+		if err != nil {
+			log.Error(err)
+			return "", err
+		} else {
+			router.routes.Store(route.UID, route)
+			log.Infof("DynamicRouter: Added new route: id: %s; pathPrefix: %s; path %s", route.UID, route.PathPrefix, route.Path)
+		}
+		return route.UID, nil
 	}
+}
+
+func validateRoute(router *dynamicRouter, route Route) error {
+	err := error(nil)
+
+	//check for multiple registrations
+	router.routes.Range(func(key, value interface{}) bool {
+		r := value.(Route)
+		if r.String() == route.String() {
+			err = errors.New("DynamicRouter: multiple registrations for : " + route.String())
+			return false
+		}
+		return true
+	})
+
+	return err
 }
 
 func RemoveRoute(router *dynamicRouter) func(routeId string) {

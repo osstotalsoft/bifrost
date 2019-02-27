@@ -1,7 +1,6 @@
 package main
 
 import (
-	r "bifrost/router"
 	"bifrost/servicediscovery"
 	"net/http"
 	"testing"
@@ -134,14 +133,9 @@ var (
 
 func TestAddEndpoint(t *testing.T) {
 	gateway := NewGateway(&testConfig1)
-	dynRouter := r.NewDynamicRouter(func(route r.Route) func(request *http.Request) r.RouteMatch {
-		return func(request *http.Request) r.RouteMatch {
-			return r.RouteMatch{Matched: true}
-		}
-	})
 
-	dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	})
+	//dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	//})
 
 	t.Run("group", func(t *testing.T) {
 		for _, tc := range testCases1 {
@@ -149,20 +143,17 @@ func TestAddEndpoint(t *testing.T) {
 			t.Run(tc.title, func(t *testing.T) {
 				t.Parallel()
 
-				AddEndpoint(gateway)(func(path, pathPrefix string, methods []string, targetUrl, targetUrlPath, targetUrlPrefix string) string {
-					r := r.AddRoute(dynRouter)(path, pathPrefix, methods, dummyHandler)
-
+				AddEndpoint(gateway)(func(path string, pathPrefix string, methods []string, handler http.Handler) (s string, e error) {
 					if path != tc.expectedPath {
 						t.Fatalf("expectedPath %v, but got %v", tc.expectedPath, path)
 					}
 					if pathPrefix != tc.expectedPathPrefix {
 						t.Fatalf("expectedPathPrefix %v, but got %v", tc.expectedPathPrefix, pathPrefix)
 					}
-					if targetUrl != tc.expectedDestination {
-						t.Fatalf("expectedDestination %v, but got %v", tc.expectedDestination, targetUrl)
-					}
-
-					return r.UID
+					//if targetUrl != tc.expectedDestination {
+					//	t.Fatalf("expectedDestination %v, but got %v", tc.expectedDestination, targetUrl)
+					//}
+					return "", nil
 				})(tc.service)
 			})
 		}
