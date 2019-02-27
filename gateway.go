@@ -3,13 +3,19 @@ package main
 import (
 	"bifrost/servicediscovery"
 	"bifrost/utils"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
+type PreFilterFunc func(request *http.Request) error
+type PostFilterFunc func(request, proxyRequest *http.Request, proxyResponse *http.Response) ([]byte, error)
+
 type Gateway struct {
+	preFilters            []PreFilterFunc
+	postFilters           []PostFilterFunc
 	config                *Config
 	endPointToRouteMapper sync.Map
 }
@@ -30,6 +36,18 @@ func AddEndpoint(gate *Gateway) AddEndpointFunc {
 		return func(service servicediscovery.Service) {
 			internalAddRoute(gate, service, addRouteFunc)
 		}
+	}
+}
+
+func AddPreFilter(gate *Gateway) func(f PreFilterFunc) {
+	return func(f PreFilterFunc) {
+		router.preFilters = append(router.preFilters, f)
+	}
+}
+
+func AddPostFilter(gate *Gateway) func(f PostFilterFunc) {
+	return func(f PostFilterFunc) {
+		router.postFilters = append(router.postFilters, f)
 	}
 }
 
@@ -56,6 +74,16 @@ func internalRemoveRoute(gate *Gateway, oldService servicediscovery.Service, rem
 		}
 		return true
 	})
+}
+
+func runPreFilters(preFilters []PreFilterFunc, request *http.Request) error {
+	for _, filter := range preFilters {
+		err := filter(request)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func internalAddRoute(gate *Gateway, service servicediscovery.Service, addRouteFunc AddRouteFunc) {
@@ -110,6 +138,22 @@ func findEndpoints(endpoints []Endpoint, serviceName string) []Endpoint {
 	return result
 }
 
+func handleFilterError(responseWriter http.ResponseWriter, request *http.Request, err error) {
+	responseWriter.Header().Set("Content/Type", "text/html")
+	responseWriter.WriteHeader(500)
+	_, err = responseWriter.Write([]byte(err.Error()))
+	if err != nil {
+		log.Errorln(err)
+	}
+}
+
 func GatewayListenAndServe(gate *Gateway, handler http.Handler) error {
-	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port), handler)
+	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port), func(w http.ResponseWriter, r *http.Request) {
+		err := runPreFilters(router.preFilters, r)
+		if err != nil {
+			handleFilterError(writer, newReq, err)
+			return
+		}
+		handler()
+	})
 }
