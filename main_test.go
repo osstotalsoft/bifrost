@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type mainTest struct {
@@ -70,6 +72,14 @@ var (
 				DownstreamPathPrefix: "/offers3",
 				DownstreamPath:       "",
 				ServiceName:          "offers3",
+			},
+			{
+				UpstreamPathPrefix:   "/api/v1",
+				UpstreamPath:         "/offers4?id={id}",
+				DownstreamPathPrefix: "/offers4",
+				DownstreamPath:       "/{id}",
+				ServiceName:          "offers4",
+				Methods:              nil,
 			},
 		},
 	}
@@ -141,10 +151,23 @@ var (
 			requestUrl:          "/offers3",
 			backendUrl:          "/offers3",
 		},
+		{
+			title: "serviceWithPrefix6",
+			service: servicediscovery.Service{
+				Resource:  "offers4",
+				Namespace: "app",
+				Address:   "http://offers4.app:80/",
+				Secured:   false},
+			responseFromGateway: "responseFromGateway6",
+			requestUrl:          "/offers4/555",
+			backendUrl:          "/api/v1/offers4?id=555",
+		},
 	}
 )
 
 func TestGateway(t *testing.T) {
+
+	log.SetLevel(log.DebugLevel)
 
 	mux := http.NewServeMux()
 	backendServer := httptest.NewServer(mux)

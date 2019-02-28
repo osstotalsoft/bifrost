@@ -40,6 +40,7 @@ func GetDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *htt
 			}
 		} else {
 			req.URL.Path = target.Path
+			req.URL.RawQuery = targetQuery
 		}
 
 		req.URL.Path = replaceVarsInTarget(req.URL.Path, routeContext.Vars)
