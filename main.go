@@ -7,16 +7,21 @@ import (
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery/providers/kubernetes"
 	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
 func main() {
-	config := getConfiguration()
-	setLogging(config)
 
-	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(config.InCluster)
+	//https://github.com/golang/go/issues/16012
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
+
+	cfg := config.LoadConfig()
+	setLogging(cfg)
+
+	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress)
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
 	//registry := in_memory_registry.NewInMemoryStore()
-	gate := gateway.NewGateway(config)
+	gate := gateway.NewGateway(cfg)
 
 	gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
 	//r.AddPostFilter(dynRouter)(filters.AuthorizationFilter())
@@ -31,7 +36,7 @@ func main() {
 		kubernetes.Start,
 	)(provider)
 
-	err := gateway.GatewayListenAndServe(gate, r.GetHandler(dynRouter))
+	err := gateway.ListenAndServe(gate, r.GetHandler(dynRouter))
 	if err != nil {
 		log.Print(err)
 	}
@@ -44,8 +49,4 @@ func setLogging(config *config.Config) {
 	if e == nil {
 		log.SetLevel(level)
 	}
-}
-
-func getConfiguration() *config.Config {
-	return config.LoadConfig()
 }

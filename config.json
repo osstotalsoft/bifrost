@@ -3,6 +3,7 @@
   "name": "Bifrost api gateway",
   "port": 8000,
   "in_cluster": false,
+  "override_service_address": "http://kube-worker1:30293/",
   "log_level": "DEBUG",
   "metrics": {
     "enabled": true,
@@ -23,12 +24,12 @@
       "service_name": "lsng-api"
     },
     {
-      "upstream_path": "/api/{version}/offers/{offerId}/{offerSiteId}",
+      "upstream_path_prefix": "/downstream-api-2",
       "methods": [
         "POST",
         "GET"
       ],
-      "service_name": "lsng-api2.lsng"
+      "service_name": "downstream-api-2"
     }
   ]
 }
