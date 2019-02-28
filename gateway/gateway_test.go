@@ -1,8 +1,8 @@
-package main
+package gateway
 
 import (
-	"bifrost/config"
-	"bifrost/servicediscovery"
+	"github.com/osstotalsoft/bifrost/config"
+	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"net/http"
 	"testing"
 )
@@ -141,8 +141,8 @@ func TestAddService(t *testing.T) {
 			t.Run(tc.title, func(t *testing.T) {
 				t.Parallel()
 
-				endp := internalAddService(gateway, tc.service, func(path string, pathPrefix string, methods []string, handler http.Handler) (s string, e error) {
-					return "", nil
+				endp := internalAddService(gateway, tc.service, func(path string, pathPrefix string, methods []string, handler http.Handler) (id string, e error) {
+					return "1", nil
 				})
 
 				if endp[0].DownstreamPath != tc.expectedPath {

@@ -1,36 +1,42 @@
 package main
 
 import (
-	"bifrost/config"
-	"bifrost/filters"
-	r "bifrost/router"
-	"bifrost/servicediscovery/provider/kubernetes"
+	"github.com/osstotalsoft/bifrost/config"
+	"github.com/osstotalsoft/bifrost/filters"
+	"github.com/osstotalsoft/bifrost/gateway"
+	r "github.com/osstotalsoft/bifrost/router"
+	"github.com/osstotalsoft/bifrost/servicediscovery/providers/kubernetes"
 	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
 func main() {
-	config := getConfiguration()
-	setLogging(config)
 
-	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(config.InCluster)
+	//https://github.com/golang/go/issues/16012
+	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
+
+	cfg := config.LoadConfig()
+	setLogging(cfg)
+
+	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress)
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
 	//registry := in_memory_registry.NewInMemoryStore()
-	gateway := NewGateway(config)
+	gate := gateway.NewGateway(cfg)
 
-	AddPreFilter(gateway)(filters.AuthorizationFilter())
+	gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
 	//r.AddPostFilter(dynRouter)(filters.AuthorizationFilter())
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
 
 	kubernetes.Compose(
-		kubernetes.SubscribeOnAddService(AddService(gateway)(addRouteFunc)),
-		kubernetes.SubscribeOnRemoveService(RemoveService(gateway)(removeRouteFunc)),
-		kubernetes.SubscribeOnUpdateService(UpdateService(gateway)(addRouteFunc, removeRouteFunc)),
+		kubernetes.SubscribeOnAddService(gateway.AddService(gate)(addRouteFunc)),
+		kubernetes.SubscribeOnRemoveService(gateway.RemoveService(gate)(removeRouteFunc)),
+		kubernetes.SubscribeOnUpdateService(gateway.UpdateService(gate)(addRouteFunc, removeRouteFunc)),
 		kubernetes.Start,
 	)(provider)
 
-	err := GatewayListenAndServe(gateway, r.GetHandler(dynRouter))
+	err := gateway.ListenAndServe(gate, r.GetHandler(dynRouter))
 	if err != nil {
 		log.Print(err)
 	}
@@ -43,8 +49,4 @@ func setLogging(config *config.Config) {
 	if e == nil {
 		log.SetLevel(level)
 	}
-}
-
-func getConfiguration() *config.Config {
-	return config.LoadConfig()
 }

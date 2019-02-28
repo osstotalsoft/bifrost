@@ -1,7 +1,7 @@
 package kubernetes
 
 import (
-	"bifrost/servicediscovery"
+	"github.com/osstotalsoft/bifrost/servicediscovery"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,12 +23,13 @@ type Provider struct {
 	onUpdateServiceHandlers []func(old servicediscovery.Service, new servicediscovery.Service)
 	stop                    chan struct{}
 	clientset               *kubernetes.Clientset
+	overrideServiceAddress  string
 }
 
 const ResourceLabelName = "api-gateway/resource"
 const SecuredLabelName = "api-gateway/secured"
 
-func NewKubernetesServiceDiscoveryProvider(inCluster bool) *Provider {
+func NewKubernetesServiceDiscoveryProvider(inCluster bool, overrideServiceAddress string) *Provider {
 
 	var config *rest.Config
 	var err error
@@ -40,12 +41,16 @@ func NewKubernetesServiceDiscoveryProvider(inCluster bool) *Provider {
 	}
 
 	if err != nil {
-		panic(err.Error())
+		log.Panic(err.Error())
+	}
+
+	if inCluster && overrideServiceAddress != "" {
+		log.Panic("Kubernetes: You cannot override service address while in cluster mode")
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err.Error())
+		log.Panic(err.Error())
 	}
 
 	return &Provider{
@@ -54,6 +59,7 @@ func NewKubernetesServiceDiscoveryProvider(inCluster bool) *Provider {
 		onUpdateServiceHandlers: []func(old servicediscovery.Service, new servicediscovery.Service){},
 		clientset:               clientset,
 		stop:                    make(chan struct{}),
+		overrideServiceAddress:  overrideServiceAddress,
 	}
 }
 
@@ -84,7 +90,9 @@ func updateFunc(provider *Provider) func(oldObj, newObj interface{}) {
 		newSrv := newObj.(*corev1.Service)
 		log.Debugf("KubernetesProvider: Service updated old: %s, new: %s", oldSrv.String(), newSrv.String())
 
-		callUpdateSubscribers(provider.onUpdateServiceHandlers, mapToService(oldSrv), mapToService(newSrv))
+		callUpdateSubscribers(provider.onUpdateServiceHandlers,
+			mapToService(oldSrv, provider.overrideServiceAddress),
+			mapToService(newSrv, provider.overrideServiceAddress))
 	}
 }
 
@@ -93,7 +101,7 @@ func deleteFunc(provider *Provider) func(obj interface{}) {
 		srv := obj.(*corev1.Service)
 		log.Debugf("KubernetesProvider: Service deleted: %s", srv)
 
-		callSubscribers(provider.onRemoveServiceHandlers, mapToService(srv))
+		callSubscribers(provider.onRemoveServiceHandlers, mapToService(srv, provider.overrideServiceAddress))
 	}
 }
 
@@ -102,15 +110,19 @@ func addFunc(provider *Provider) func(obj interface{}) {
 		srv := obj.(*corev1.Service)
 		log.Debugf("KubernetesProvider: New service : %v", srv)
 
-		callSubscribers(provider.onAddServiceHandlers, mapToService(srv))
+		callSubscribers(provider.onAddServiceHandlers, mapToService(srv, provider.overrideServiceAddress))
 	}
 }
 
-func mapToService(srv *corev1.Service) servicediscovery.Service {
+func mapToService(srv *corev1.Service, overrideServiceAddress string) servicediscovery.Service {
 	secured, _ := strconv.ParseBool(srv.Labels[SecuredLabelName])
 
+	address := "http://" + srv.Name + "." + srv.Namespace
+	if overrideServiceAddress != "" {
+		address = overrideServiceAddress
+	}
 	return servicediscovery.Service{
-		Address:   "http://" + srv.Name + "." + srv.Namespace, // "http://kube-worker1:32344",
+		Address:   address,
 		Version:   srv.ResourceVersion,
 		UID:       string(srv.UID),
 		Name:      srv.Name,

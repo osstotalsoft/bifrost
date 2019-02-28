@@ -7,13 +7,14 @@ import (
 )
 
 type Config struct {
-	Endpoints            []Endpoint `json:"endpoints"`
-	Port                 int        `json:"port"`
-	Version              string     `json:"version"`
-	UpstreamPathPrefix   string     `json:"upstream_path_prefix"`
-	DownstreamPathPrefix string     `json:"downstream_path_prefix"`
-	LogLevel             string     `json:"log_level"`
-	InCluster            bool       `json:"in_cluster"`
+	Endpoints              []Endpoint `json:"endpoints"`
+	Port                   int        `json:"port"`
+	Version                string     `json:"version"`
+	UpstreamPathPrefix     string     `json:"upstream_path_prefix"`
+	DownstreamPathPrefix   string     `json:"downstream_path_prefix"`
+	LogLevel               string     `json:"log_level"`
+	InCluster              bool       `json:"in_cluster"`
+	OverrideServiceAddress string     `json:"override_service_address"`
 }
 
 type Endpoint struct {

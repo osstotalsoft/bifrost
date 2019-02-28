@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"bifrost/router"
-	"bifrost/utils"
+	"github.com/osstotalsoft/bifrost/router"
+	"github.com/osstotalsoft/bifrost/utils"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"net/http/httputil"
@@ -13,7 +13,7 @@ import (
 func NewReverseProxy(targetUrl, targetUrlPath, targetUrlPrefix string) http.Handler {
 
 	//https://github.com/golang/go/issues/16012
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
+	//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
 	return &httputil.ReverseProxy{Director: GetDirector(targetUrl, targetUrlPath, targetUrlPrefix)}
 }

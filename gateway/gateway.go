@@ -1,10 +1,10 @@
-package main
+package gateway
 
 import (
-	"bifrost/config"
-	"bifrost/handlers"
-	"bifrost/servicediscovery"
-	"bifrost/utils"
+	"github.com/osstotalsoft/bifrost/config"
+	"github.com/osstotalsoft/bifrost/handlers"
+	"github.com/osstotalsoft/bifrost/servicediscovery"
+	"github.com/osstotalsoft/bifrost/utils"
 	"net/http"
 	"strconv"
 	"sync"
@@ -23,7 +23,7 @@ type Gateway struct {
 	middlewares           map[string]MiddlewareFunc
 }
 
-type Endpoint struct {
+type endpoint struct {
 	UpstreamPath         string
 	UpstreamPathPrefix   string
 	UpstreamURL          string
@@ -85,7 +85,7 @@ func RemoveService(gate *Gateway) func(removeRouteFunc func(routeId string)) fun
 	}
 }
 
-func internalAddService(gate *Gateway, service servicediscovery.Service, addRouteFunc AddRouteFunc) []Endpoint {
+func internalAddService(gate *Gateway, service servicediscovery.Service, addRouteFunc AddRouteFunc) []endpoint {
 	var routes []string
 
 	endpoints := createEndpoints(gate.config, service)
@@ -110,12 +110,12 @@ func removeRoutes(gate *Gateway, oldService servicediscovery.Service, removeRout
 	})
 }
 
-func createEndpoints(config *config.Config, service servicediscovery.Service) []Endpoint {
+func createEndpoints(config *config.Config, service servicediscovery.Service) []endpoint {
 	configEndpoints := findConfigEndpoints(config.Endpoints, service.Resource)
-	var endPoints []Endpoint
+	var endPoints []endpoint
 
 	for _, endp := range configEndpoints {
-		var endPoint Endpoint
+		var endPoint endpoint
 
 		endPoint.DownstreamPathPrefix = endp.DownstreamPathPrefix
 		if endPoint.DownstreamPathPrefix == "" {
@@ -135,7 +135,7 @@ func createEndpoints(config *config.Config, service servicediscovery.Service) []
 
 	//add default route if no config found
 	if len(endPoints) == 0 {
-		var endPoint Endpoint
+		var endPoint endpoint
 
 		endPoint.DownstreamPathPrefix = utils.SingleJoiningSlash(config.DownstreamPathPrefix, service.Resource)
 		endPoint.UpstreamURL = utils.SingleJoiningSlash(service.Address, config.UpstreamPathPrefix)
@@ -166,11 +166,11 @@ func handleFilterError(responseWriter http.ResponseWriter, request *http.Request
 	}
 }
 
-func GatewayListenAndServe(gate *Gateway, handler http.Handler) error {
+func ListenAndServe(gate *Gateway, handler http.Handler) error {
 	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port), handler)
 }
 
-func getEndpointHandlers(gate *Gateway, endPoint Endpoint) http.Handler {
+func getEndpointHandlers(gate *Gateway, endPoint endpoint) http.Handler {
 
 	//for i := len(gate.middlewares) - 1; i >= 0; i-- {
 	//	match.Handler = gate.middlewares[i](match.Handler)
