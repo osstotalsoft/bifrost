@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"bifrost/router"
-	"bifrost/utils"
+	"github.com/osstotalsoft/bifrost/router"
+	"github.com/osstotalsoft/bifrost/utils"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"net/http/httputil"

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bifrost/config"
-	r "bifrost/router"
-	"bifrost/servicediscovery"
+	"github.com/osstotalsoft/bifrost/config"
+	r "github.com/osstotalsoft/bifrost/router"
+	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"io/ioutil"
 	"math/rand"
 	"net/http"

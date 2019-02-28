@@ -1,4 +1,4 @@
-module bifrost
+module github.com/osstotalsoft/bifrost
 
 require (
 	github.com/gogo/protobuf v1.2.1 // indirect

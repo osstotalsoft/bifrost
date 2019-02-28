@@ -1,7 +1,7 @@
 package provider
 
 import (
-	"bifrost/servicediscovery"
+	"github.com/osstotalsoft/bifrost/servicediscovery"
 	log "github.com/sirupsen/logrus"
 )
 

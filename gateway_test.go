@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bifrost/config"
-	"bifrost/servicediscovery"
+	"github.com/osstotalsoft/bifrost/config"
+	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"net/http"
 	"testing"
 )

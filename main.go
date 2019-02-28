@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bifrost/config"
-	"bifrost/filters"
-	r "bifrost/router"
-	"bifrost/servicediscovery/provider/kubernetes"
+	"github.com/osstotalsoft/bifrost/config"
+	"github.com/osstotalsoft/bifrost/filters"
+	r "github.com/osstotalsoft/bifrost/router"
+	"github.com/osstotalsoft/bifrost/servicediscovery/provider/kubernetes"
 	log "github.com/sirupsen/logrus"
 )
 

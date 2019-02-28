@@ -1,7 +1,7 @@
 package in_memory_registry
 
 import (
-	"bifrost/servicediscovery"
+	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"sync"
 )
 

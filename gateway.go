@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bifrost/config"
-	"bifrost/handlers"
-	"bifrost/servicediscovery"
-	"bifrost/utils"
+	"github.com/osstotalsoft/bifrost/config"
+	"github.com/osstotalsoft/bifrost/handlers"
+	"github.com/osstotalsoft/bifrost/servicediscovery"
+	"github.com/osstotalsoft/bifrost/utils"
 	"net/http"
 	"strconv"
 	"sync"
