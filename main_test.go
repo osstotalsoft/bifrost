@@ -195,8 +195,6 @@ func TestGateway(t *testing.T) {
 	defer frontendProxy.Close()
 
 	for _, tc := range testCases2 {
-		tc := tc
-
 		gateway.AddService(gate)(r.AddRoute(dynRouter))(tc.service)
 	}
 

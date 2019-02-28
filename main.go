@@ -29,6 +29,7 @@ func main() {
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
 
+	//configure and start ServiceDiscovery
 	kubernetes.Compose(
 		kubernetes.SubscribeOnAddService(gateway.AddService(gate)(addRouteFunc)),
 		kubernetes.SubscribeOnRemoveService(gateway.RemoveService(gate)(removeRouteFunc)),
