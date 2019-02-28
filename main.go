@@ -3,8 +3,9 @@ package main
 import (
 	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/filters"
+	"github.com/osstotalsoft/bifrost/gateway"
 	r "github.com/osstotalsoft/bifrost/router"
-	"github.com/osstotalsoft/bifrost/servicediscovery/provider/kubernetes"
+	"github.com/osstotalsoft/bifrost/servicediscovery/providers/kubernetes"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -15,22 +16,22 @@ func main() {
 	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(config.InCluster)
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
 	//registry := in_memory_registry.NewInMemoryStore()
-	gateway := NewGateway(config)
+	gate := gateway.NewGateway(config)
 
-	AddPreFilter(gateway)(filters.AuthorizationFilter())
+	gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
 	//r.AddPostFilter(dynRouter)(filters.AuthorizationFilter())
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
 
 	kubernetes.Compose(
-		kubernetes.SubscribeOnAddService(AddService(gateway)(addRouteFunc)),
-		kubernetes.SubscribeOnRemoveService(RemoveService(gateway)(removeRouteFunc)),
-		kubernetes.SubscribeOnUpdateService(UpdateService(gateway)(addRouteFunc, removeRouteFunc)),
+		kubernetes.SubscribeOnAddService(gateway.AddService(gate)(addRouteFunc)),
+		kubernetes.SubscribeOnRemoveService(gateway.RemoveService(gate)(removeRouteFunc)),
+		kubernetes.SubscribeOnUpdateService(gateway.UpdateService(gate)(addRouteFunc, removeRouteFunc)),
 		kubernetes.Start,
 	)(provider)
 
-	err := GatewayListenAndServe(gateway, r.GetHandler(dynRouter))
+	err := gateway.GatewayListenAndServe(gate, r.GetHandler(dynRouter))
 	if err != nil {
 		log.Print(err)
 	}

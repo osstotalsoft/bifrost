@@ -1,6 +1,6 @@
 {
   "version": "2",
-  "name": "My lovely gateway",
+  "name": "Bifrost api gateway",
   "port": 8000,
   "in_cluster": false,
   "log_level": "DEBUG",

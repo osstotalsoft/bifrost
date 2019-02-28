@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/osstotalsoft/bifrost/config"
+	"github.com/osstotalsoft/bifrost/gateway"
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"io/ioutil"
@@ -165,7 +166,7 @@ func TestGateway(t *testing.T) {
 	defer backendServer.Close()
 
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
-	gateway := NewGateway(&testConfig2)
+	gate := gateway.NewGateway(&testConfig2)
 
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
@@ -173,7 +174,7 @@ func TestGateway(t *testing.T) {
 	for _, tc := range testCases2 {
 		tc := tc
 
-		AddService(gateway)(r.AddRoute(dynRouter))(tc.service)
+		gateway.AddService(gate)(r.AddRoute(dynRouter))(tc.service)
 	}
 
 	t.Run("group", func(t *testing.T) {
