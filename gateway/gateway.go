@@ -14,17 +14,23 @@ import (
 
 type PreFilterFunc func(request *http.Request) error
 type PostFilterFunc func(request, proxyRequest *http.Request, proxyResponse *http.Response) ([]byte, error)
-type MiddlewareFunc func(http.Handler) http.Handler
+type MiddlewareFunc func(endpoint Endpoint) func(http.Handler) http.Handler
 
 type Gateway struct {
 	preFilters            []PreFilterFunc
 	config                *config.Config
 	endPointToRouteMapper sync.Map
-	middlewares           map[string]MiddlewareFunc
+	middlewares           []middleware
 }
 
-type endpoint struct {
+type middleware struct {
+	key        string
+	middleware MiddlewareFunc
+}
+
+type Endpoint struct {
 	UpstreamPath         string
+	Secured              bool
 	UpstreamPathPrefix   string
 	UpstreamURL          string
 	DownstreamPath       string
@@ -73,7 +79,7 @@ func UpdateService(gate *Gateway) UpdateEndpointFunc {
 
 func UseMiddleware(gate *Gateway) func(key string, mwf MiddlewareFunc) {
 	return func(key string, mwf MiddlewareFunc) {
-		gate.middlewares[key] = mwf
+		gate.middlewares = append(gate.middlewares, middleware{key, mwf})
 	}
 }
 
@@ -85,7 +91,7 @@ func RemoveService(gate *Gateway) func(removeRouteFunc func(routeId string)) fun
 	}
 }
 
-func internalAddService(gate *Gateway, service servicediscovery.Service, addRouteFunc AddRouteFunc) []endpoint {
+func internalAddService(gate *Gateway, service servicediscovery.Service, addRouteFunc AddRouteFunc) []Endpoint {
 	var routes []string
 
 	endpoints := createEndpoints(gate.config, service)
@@ -110,13 +116,14 @@ func removeRoutes(gate *Gateway, oldService servicediscovery.Service, removeRout
 	})
 }
 
-func createEndpoints(config *config.Config, service servicediscovery.Service) []endpoint {
+func createEndpoints(config *config.Config, service servicediscovery.Service) []Endpoint {
 	configEndpoints := findConfigEndpoints(config.Endpoints, service.Resource)
-	var endPoints []endpoint
+	var endPoints []Endpoint
 
 	for _, endp := range configEndpoints {
-		var endPoint endpoint
+		var endPoint Endpoint
 
+		endPoint.Secured = service.Secured
 		endPoint.DownstreamPathPrefix = endp.DownstreamPathPrefix
 		if endPoint.DownstreamPathPrefix == "" {
 			endPoint.DownstreamPathPrefix = utils.SingleJoiningSlash(config.DownstreamPathPrefix, service.Resource)
@@ -135,7 +142,7 @@ func createEndpoints(config *config.Config, service servicediscovery.Service) []
 
 	//add default route if no config found
 	if len(endPoints) == 0 {
-		var endPoint endpoint
+		var endPoint Endpoint
 
 		endPoint.DownstreamPathPrefix = utils.SingleJoiningSlash(config.DownstreamPathPrefix, service.Resource)
 		endPoint.UpstreamURL = utils.SingleJoiningSlash(service.Address, config.UpstreamPathPrefix)
@@ -157,27 +164,16 @@ func findConfigEndpoints(endpoints []config.Endpoint, serviceName string) []conf
 	return result
 }
 
-func handleFilterError(responseWriter http.ResponseWriter, request *http.Request, err error) {
-	responseWriter.Header().Set("Content/Type", "text/html")
-	responseWriter.WriteHeader(500)
-	_, err = responseWriter.Write([]byte(err.Error()))
-	if err != nil {
-		log.Errorln(err)
-	}
-}
-
 func ListenAndServe(gate *Gateway, handler http.Handler) error {
 	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port), handler)
 }
 
-func getEndpointHandlers(gate *Gateway, endPoint endpoint) http.Handler {
+func getEndpointHandlers(gate *Gateway, endPoint Endpoint) http.Handler {
 
-	//for i := len(gate.middlewares) - 1; i >= 0; i-- {
-	//	match.Handler = gate.middlewares[i](match.Handler)
-	//}
 	revProxy := handlers.NewReverseProxy(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix)
 
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	var h http.Handler
+	h = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("X-Gateway", "GoGateway")
 		err := runPreFilters(gate.preFilters, request)
 		if err != nil {
@@ -187,6 +183,21 @@ func getEndpointHandlers(gate *Gateway, endPoint endpoint) http.Handler {
 
 		revProxy.ServeHTTP(writer, request)
 	})
+
+	for i := len(gate.middlewares) - 1; i >= 0; i-- {
+		h = gate.middlewares[i].middleware(endPoint)(h)
+	}
+
+	return h
+}
+
+func handleFilterError(responseWriter http.ResponseWriter, request *http.Request, err error) {
+	responseWriter.Header().Set("Content/Type", "text/html")
+	responseWriter.WriteHeader(500)
+	_, err = responseWriter.Write([]byte(err.Error()))
+	if err != nil {
+		log.Errorln(err)
+	}
 }
 
 func runPreFilters(preFilters []PreFilterFunc, request *http.Request) error {
