@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/osstotalsoft/bifrost/gateway"
 	"github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/utils"
 	log "github.com/sirupsen/logrus"
@@ -10,12 +11,14 @@ import (
 	"strings"
 )
 
-func NewReverseProxy(targetUrl, targetUrlPath, targetUrlPrefix string) http.Handler {
+func NewReverseProxy() gateway.HandlerFunc {
 
-	//https://github.com/golang/go/issues/16012
-	//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
+	return func(endPoint gateway.Endpoint) http.Handler {
+		//https://github.com/golang/go/issues/16012
+		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
-	return &httputil.ReverseProxy{Director: GetDirector(targetUrl, targetUrlPath, targetUrlPrefix)}
+		return &httputil.ReverseProxy{Director: GetDirector(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix)}
+	}
 }
 
 func GetDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *http.Request) {

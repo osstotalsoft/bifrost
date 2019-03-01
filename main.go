@@ -4,6 +4,7 @@ import (
 	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/filters"
 	"github.com/osstotalsoft/bifrost/gateway"
+	"github.com/osstotalsoft/bifrost/handlers"
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery/providers/kubernetes"
 	log "github.com/sirupsen/logrus"
@@ -22,9 +23,12 @@ func main() {
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
 	//registry := in_memory_registry.NewInMemoryStore()
 	gate := gateway.NewGateway(cfg)
+	registerHandlerFunc := gateway.RegisterHandler(gate)
 
 	//gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
 	gateway.UseMiddleware(gate)("AUTH", filters.AuthorizationFilter())
+	registerHandlerFunc("event", handlers.NewNatsPublisher(handlers.NatsConfig{}))
+	registerHandlerFunc("http", handlers.NewReverseProxy())
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)

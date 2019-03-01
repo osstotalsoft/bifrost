@@ -21,7 +21,9 @@
       "upstream_path": "",
       "upstream_path_prefix": "/api",
       "downstream_path_prefix": "/leasing/v1",
-      "service_name": "lsng-api"
+      "service_name": "lsng-api",
+      "handler_type": "event",
+      "topic": ""
     },
     {
       "upstream_path_prefix": "/downstream-api-2",
@@ -30,6 +32,24 @@
         "GET"
       ],
       "service_name": "downstream-api-2"
+    },
+    {
+      "upstream_path_prefix": "/downstream-api-1",
+      "methods": [
+        "POST",
+        "GET"
+      ],
+      "service_name": "downstream-api-1"
     }
-  ]
+  ],
+  "handlers": {
+    "nats": {
+      "nats_url": "nats://kube-worker1:31291",
+      "cluster": "faas-cluster",
+      "client_id": "GoGatewayClientId",
+      "q_group": "GoGateway",
+      "durable_name": "durable",
+      "topic_prefix": "ch.Commands.blalb."
+    }
+  }
 }
