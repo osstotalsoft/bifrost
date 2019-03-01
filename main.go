@@ -23,8 +23,8 @@ func main() {
 	//registry := in_memory_registry.NewInMemoryStore()
 	gate := gateway.NewGateway(cfg)
 
-	gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
-	//r.AddPostFilter(dynRouter)(filters.AuthorizationFilter())
+	//gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
+	gateway.UseMiddleware(gate)("AUTH", filters.AuthorizationFilter())
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
