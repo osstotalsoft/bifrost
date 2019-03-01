@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"github.com/osstotalsoft/bifrost/config"
-	"github.com/osstotalsoft/bifrost/handlers"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"github.com/osstotalsoft/bifrost/utils"
 	"net/http"
@@ -12,18 +11,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const DefaultHandlerType = "http"
+
 type PreFilterFunc func(request *http.Request) error
 type PostFilterFunc func(request, proxyRequest *http.Request, proxyResponse *http.Response) ([]byte, error)
 type MiddlewareFunc func(endpoint Endpoint) func(http.Handler) http.Handler
+type HandlerFunc func(endpoint Endpoint) http.Handler
 
 type Gateway struct {
 	preFilters            []PreFilterFunc
 	config                *config.Config
 	endPointToRouteMapper sync.Map
-	middlewares           []middleware
+	middlewares           []middlewareTuple
+	handlers              map[string]HandlerFunc
 }
 
-type middleware struct {
+type middlewareTuple struct {
 	key        string
 	middleware MiddlewareFunc
 }
@@ -36,6 +39,8 @@ type Endpoint struct {
 	DownstreamPath       string
 	DownstreamPathPrefix string
 	Methods              []string
+	HandlerType          string
+	Topic                string
 }
 
 func NewGateway(config *config.Config) *Gateway {
@@ -45,6 +50,7 @@ func NewGateway(config *config.Config) *Gateway {
 	return &Gateway{
 		config:     config,
 		preFilters: []PreFilterFunc{},
+		handlers:   map[string]HandlerFunc{},
 	}
 }
 
@@ -79,7 +85,13 @@ func UpdateService(gate *Gateway) UpdateEndpointFunc {
 
 func UseMiddleware(gate *Gateway) func(key string, mwf MiddlewareFunc) {
 	return func(key string, mwf MiddlewareFunc) {
-		gate.middlewares = append(gate.middlewares, middleware{key, mwf})
+		gate.middlewares = append(gate.middlewares, middlewareTuple{key, mwf})
+	}
+}
+
+func RegisterHandler(gate *Gateway) func(key string, handlerFunc HandlerFunc) {
+	return func(key string, handlerFunc HandlerFunc) {
+		gate.handlers[key] = handlerFunc
 	}
 }
 
@@ -123,7 +135,13 @@ func createEndpoints(config *config.Config, service servicediscovery.Service) []
 	for _, endp := range configEndpoints {
 		var endPoint Endpoint
 
+		endPoint.HandlerType = endp.HandlerType
+		if endPoint.HandlerType == "" {
+			endPoint.HandlerType = DefaultHandlerType
+		}
+
 		endPoint.Secured = service.Secured
+		endPoint.Topic = endp.Topic
 		endPoint.DownstreamPathPrefix = endp.DownstreamPathPrefix
 		if endPoint.DownstreamPathPrefix == "" {
 			endPoint.DownstreamPathPrefix = utils.SingleJoiningSlash(config.DownstreamPathPrefix, service.Resource)
@@ -144,6 +162,8 @@ func createEndpoints(config *config.Config, service servicediscovery.Service) []
 	if len(endPoints) == 0 {
 		var endPoint Endpoint
 
+		endPoint.Secured = service.Secured
+		endPoint.HandlerType = DefaultHandlerType
 		endPoint.DownstreamPathPrefix = utils.SingleJoiningSlash(config.DownstreamPathPrefix, service.Resource)
 		endPoint.UpstreamURL = utils.SingleJoiningSlash(service.Address, config.UpstreamPathPrefix)
 		endPoint.UpstreamPathPrefix = config.UpstreamPathPrefix
@@ -170,7 +190,11 @@ func ListenAndServe(gate *Gateway, handler http.Handler) error {
 
 func getEndpointHandlers(gate *Gateway, endPoint Endpoint) http.Handler {
 
-	revProxy := handlers.NewReverseProxy(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix)
+	//TODO: validation
+	handlerFunc := gate.handlers[endPoint.HandlerType]
+	handler := handlerFunc(endPoint)
+
+	//revProxy := handlers.NewReverseProxy(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix)
 
 	var h http.Handler
 	h = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -181,7 +205,7 @@ func getEndpointHandlers(gate *Gateway, endPoint Endpoint) http.Handler {
 			return
 		}
 
-		revProxy.ServeHTTP(writer, request)
+		handler.ServeHTTP(writer, request)
 	})
 
 	for i := len(gate.middlewares) - 1; i >= 0; i-- {

@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/gateway"
+	"github.com/osstotalsoft/bifrost/handlers"
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"io/ioutil"
@@ -166,7 +167,7 @@ var (
 	}
 )
 
-func TestGateway(t *testing.T) {
+func TestGatewayHTTP(t *testing.T) {
 
 	log.SetLevel(log.DebugLevel)
 
@@ -190,7 +191,7 @@ func TestGateway(t *testing.T) {
 
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
 	gate := gateway.NewGateway(&testConfig2)
-
+	gateway.RegisterHandler(gate)("http", handlers.NewReverseProxy())
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 
