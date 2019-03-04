@@ -1,26 +1,35 @@
 package handlers
 
 import (
-	"github.com/osstotalsoft/bifrost/gateway/types"
+	"github.com/mitchellh/mapstructure"
+	"github.com/osstotalsoft/bifrost/gateway"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
 type NatsConfig struct {
-	natsUrl     string `json:"handlers.nats.nats_url"`
-	cluster     string `json:"handlers.nats.cluster"`
-	clientId    string `json:"handlers.nats.client_id"`
-	qGroup      string `json:"handlers.nats.q_group"`
-	durableName string `json:"handlers.nats.durable_name"`
+	NatsUrl     string `mapstructure:"nats_url"`
+	Cluster     string `mapstructure:"cluster"`
+	ClientId    string `mapstructure:"client_id"`
+	QGroup      string `mapstructure:"q_group"`
+	DurableName string `mapstructure:"durable_name"`
 }
 
-func NewNatsPublisher(config NatsConfig) types.HandlerFunc {
+type NatsEndpointConfig struct {
+	Topic string `mapstructure:"topic"`
+}
 
-	return func(endpoint types.Endpoint) http.Handler {
+func NewNatsPublisher(config NatsConfig) gateway.HandlerFunc {
+
+	return func(endpoint gateway.Endpoint) http.Handler {
 		var h http.Handler
+		var cfg NatsEndpointConfig
+
+		_ = mapstructure.Decode(endpoint.HandlerConfig, &cfg)
+
 		h = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 
-			if err := publish("", "", "", request); err != nil {
+			if err := publish(config.Cluster, cfg.Topic, "", request); err != nil {
 				http.Error(writer, err.Error(), 500)
 				return
 			}

@@ -7,25 +7,25 @@ import (
 )
 
 type Config struct {
-	Endpoints              []Endpoint `json:"endpoints"`
-	Port                   int        `json:"port"`
-	Version                string     `json:"version"`
-	UpstreamPathPrefix     string     `json:"upstream_path_prefix"`
-	DownstreamPathPrefix   string     `json:"downstream_path_prefix"`
-	LogLevel               string     `json:"log_level"`
-	InCluster              bool       `json:"in_cluster"`
-	OverrideServiceAddress string     `json:"override_service_address"`
+	Endpoints              []Endpoint `mapstructure:"endpoints"`
+	Port                   int        `mapstructure:"port"`
+	Version                string     `mapstructure:"version"`
+	UpstreamPathPrefix     string     `mapstructure:"upstream_path_prefix"`
+	DownstreamPathPrefix   string     `mapstructure:"downstream_path_prefix"`
+	LogLevel               string     `mapstructure:"log_level"`
+	InCluster              bool       `mapstructure:"in_cluster"`
+	OverrideServiceAddress string     `mapstructure:"override_service_address"`
 }
 
 type Endpoint struct {
-	UpstreamPath         string   `json:"upstream_path"`
-	UpstreamPathPrefix   string   `json:"upstream_path_prefix"`
-	DownstreamPath       string   `json:"downstream_path"`
-	DownstreamPathPrefix string   `json:"downstream_path_prefix"`
-	ServiceName          string   `json:"service_name"`
-	Methods              []string `json:"methods"`
-	HandlerType          string   `json:"handler_type"`
-	Topic                string   `json:"topic"`
+	UpstreamPath         string                 `mapstructure:"upstream_path"`
+	UpstreamPathPrefix   string                 `mapstructure:"upstream_path_prefix"`
+	DownstreamPath       string                 `mapstructure:"downstream_path"`
+	DownstreamPathPrefix string                 `mapstructure:"downstream_path_prefix"`
+	ServiceName          string                 `mapstructure:"service_name"`
+	Methods              []string               `mapstructure:"methods"`
+	HandlerType          string                 `mapstructure:"handler_type"`
+	HandlerConfig        map[string]interface{} `mapstructure:"handler_config"`
 }
 
 func LoadConfig() *Config {

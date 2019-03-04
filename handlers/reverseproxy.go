@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"github.com/osstotalsoft/bifrost/gateway/types"
+	"github.com/osstotalsoft/bifrost/gateway"
 	"github.com/osstotalsoft/bifrost/router"
-	"github.com/osstotalsoft/bifrost/utils"
+	"github.com/osstotalsoft/bifrost/strutils"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"net/http/httputil"
@@ -11,9 +11,18 @@ import (
 	"strings"
 )
 
-func NewReverseProxy() types.HandlerFunc {
+type HttpHandlerConfig struct {
+	UpstreamPathPrefix string `mapstructure:"upstream_path_prefix"`
+}
 
-	return func(endPoint types.Endpoint) http.Handler {
+type HttpHandlerEndpointConfig struct {
+	UpstreamPath       string `mapstructure:"upstream_path"`
+	UpstreamPathPrefix string `mapstructure:"upstream_path_prefix"`
+}
+
+func NewReverseProxy() gateway.HandlerFunc {
+
+	return func(endPoint gateway.Endpoint) http.Handler {
 		//https://github.com/golang/go/issues/16012
 		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
@@ -34,7 +43,7 @@ func GetDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *htt
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		if targetUrlPath == "" {
-			req.URL.Path = utils.SingleJoiningSlash(target.Path, strings.TrimPrefix(req.URL.Path, routeContext.PathPrefix))
+			req.URL.Path = strutils.SingleJoiningSlash(target.Path, strings.TrimPrefix(req.URL.Path, routeContext.PathPrefix))
 
 			if targetQuery == "" || req.URL.RawQuery == "" {
 				req.URL.RawQuery = targetQuery + req.URL.RawQuery

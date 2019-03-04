@@ -14,42 +14,62 @@
     "endpoint_disabled": false,
     "listen_address": "8090"
   },
-  "upstream_path_prefix": "/api",
   "downstream_path_prefix": "",
+  "upstream_path_prefix": "/api",
   "endpoints": [
     {
-      "upstream_path": "",
-      "upstream_path_prefix": "/api",
-      "downstream_path_prefix": "/leasing/v1",
-      "service_name": "lsng-api",
+      "service_name": "downstream-api-2",
+      "downstream_path_prefix": "/messaging/offers/computeOfferStates",
       "handler_type": "event",
-      "topic": ""
+      "handler_config": {
+        "topic": "ch.commands.Charisma.Leasing.PublishedLanguage.Commands.LeasingOffer.ComputeOffertNextStatesList"
+      },
+      "methods": [
+        "POST"
+      ]
     },
     {
+      "service_name": "downstream-api-2",
       "upstream_path_prefix": "/downstream-api-2",
       "methods": [
         "POST",
         "GET"
       ],
-      "service_name": "downstream-api-2"
+      "filters": {
+        "AUTH": {
+          "scopes": [
+            "scope1",
+            "scope2"
+          ]
+        },
+        "RATE_LIMIT": {
+          "limit": 500
+        }
+      }
     },
     {
+      "service_name": "downstream-api-1",
       "upstream_path_prefix": "/downstream-api-1",
-      "methods": [
-        "POST",
-        "GET"
-      ],
-      "service_name": "downstream-api-1"
+      "filters": {
+        "AUTH": {
+          "scopes": [
+            "scope1",
+            "scope2"
+          ]
+        }
+      }
     }
   ],
   "handlers": {
-    "nats": {
-      "nats_url": "nats://kube-worker1:31291",
-      "cluster": "faas-cluster",
-      "client_id": "GoGatewayClientId",
-      "q_group": "GoGateway",
-      "durable_name": "durable",
-      "topic_prefix": "ch.Commands.blalb."
+    "event": {
+      "nats": {
+        "nats_url": "nats://kube-worker1:31291",
+        "cluster": "faas-cluster",
+        "client_id": "GoGatewayClientId",
+        "q_group": "GoGateway",
+        "durable_name": "durable",
+        "topic_prefix": "ch.Commands.blalb."
+      }
     }
   }
 }

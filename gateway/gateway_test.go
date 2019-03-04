@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"github.com/osstotalsoft/bifrost/config"
-	"github.com/osstotalsoft/bifrost/handlers"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"net/http"
 	"testing"
@@ -135,7 +134,11 @@ var (
 
 func TestAddService(t *testing.T) {
 	gate := NewGateway(&testConfig1)
-	RegisterHandler(gate)("http", handlers.NewReverseProxy())
+	RegisterHandler(gate)("http", func(endpoint Endpoint) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+
+		})
+	})
 
 	t.Run("group", func(t *testing.T) {
 		for _, tc := range testCases1 {
