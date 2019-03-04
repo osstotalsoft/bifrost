@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/osstotalsoft/bifrost/gateway"
+	"github.com/osstotalsoft/bifrost/gateway/types"
 	"github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/utils"
 	log "github.com/sirupsen/logrus"
@@ -11,9 +11,9 @@ import (
 	"strings"
 )
 
-func NewReverseProxy() gateway.HandlerFunc {
+func NewReverseProxy() types.HandlerFunc {
 
-	return func(endPoint gateway.Endpoint) http.Handler {
+	return func(endPoint types.Endpoint) http.Handler {
 		//https://github.com/golang/go/issues/16012
 		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 

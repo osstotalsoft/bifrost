@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"github.com/osstotalsoft/bifrost/gateway"
+	"github.com/osstotalsoft/bifrost/gateway/types"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 )
@@ -14,9 +14,9 @@ type NatsConfig struct {
 	durableName string `json:"handlers.nats.durable_name"`
 }
 
-func NewNatsPublisher(config NatsConfig) gateway.HandlerFunc {
+func NewNatsPublisher(config NatsConfig) types.HandlerFunc {
 
-	return func(endpoint gateway.Endpoint) http.Handler {
+	return func(endpoint types.Endpoint) http.Handler {
 		var h http.Handler
 		h = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 

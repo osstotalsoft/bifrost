@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"github.com/osstotalsoft/bifrost/config"
+	"github.com/osstotalsoft/bifrost/gateway/types"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"github.com/osstotalsoft/bifrost/utils"
 	"net/http"
@@ -13,34 +14,17 @@ import (
 
 const DefaultHandlerType = "http"
 
-type PreFilterFunc func(request *http.Request) error
-type PostFilterFunc func(request, proxyRequest *http.Request, proxyResponse *http.Response) ([]byte, error)
-type MiddlewareFunc func(endpoint Endpoint) func(http.Handler) http.Handler
-type HandlerFunc func(endpoint Endpoint) http.Handler
-
 type Gateway struct {
-	preFilters            []PreFilterFunc
+	preFilters            []types.PreFilterFunc
 	config                *config.Config
 	endPointToRouteMapper sync.Map
 	middlewares           []middlewareTuple
-	handlers              map[string]HandlerFunc
+	handlers              map[string]types.HandlerFunc
 }
 
 type middlewareTuple struct {
 	key        string
-	middleware MiddlewareFunc
-}
-
-type Endpoint struct {
-	UpstreamPath         string
-	Secured              bool
-	UpstreamPathPrefix   string
-	UpstreamURL          string
-	DownstreamPath       string
-	DownstreamPathPrefix string
-	Methods              []string
-	HandlerType          string
-	Topic                string
+	middleware types.MiddlewareFunc
 }
 
 func NewGateway(config *config.Config) *Gateway {
@@ -49,8 +33,8 @@ func NewGateway(config *config.Config) *Gateway {
 	}
 	return &Gateway{
 		config:     config,
-		preFilters: []PreFilterFunc{},
-		handlers:   map[string]HandlerFunc{},
+		preFilters: []types.PreFilterFunc{},
+		handlers:   map[string]types.HandlerFunc{},
 	}
 }
 
@@ -66,8 +50,8 @@ func AddService(gate *Gateway) AddServiceFunc {
 	}
 }
 
-func AddPreFilter(gate *Gateway) func(f PreFilterFunc) {
-	return func(f PreFilterFunc) {
+func AddPreFilter(gate *Gateway) func(f types.PreFilterFunc) {
+	return func(f types.PreFilterFunc) {
 		gate.preFilters = append(gate.preFilters, f)
 	}
 }
@@ -83,14 +67,14 @@ func UpdateService(gate *Gateway) UpdateEndpointFunc {
 	}
 }
 
-func UseMiddleware(gate *Gateway) func(key string, mwf MiddlewareFunc) {
-	return func(key string, mwf MiddlewareFunc) {
+func UseMiddleware(gate *Gateway) func(key string, mwf types.MiddlewareFunc) {
+	return func(key string, mwf types.MiddlewareFunc) {
 		gate.middlewares = append(gate.middlewares, middlewareTuple{key, mwf})
 	}
 }
 
-func RegisterHandler(gate *Gateway) func(key string, handlerFunc HandlerFunc) {
-	return func(key string, handlerFunc HandlerFunc) {
+func RegisterHandler(gate *Gateway) func(key string, handlerFunc types.HandlerFunc) {
+	return func(key string, handlerFunc types.HandlerFunc) {
 		gate.handlers[key] = handlerFunc
 	}
 }
@@ -103,7 +87,7 @@ func RemoveService(gate *Gateway) func(removeRouteFunc func(routeId string)) fun
 	}
 }
 
-func internalAddService(gate *Gateway, service servicediscovery.Service, addRouteFunc AddRouteFunc) []Endpoint {
+func internalAddService(gate *Gateway, service servicediscovery.Service, addRouteFunc AddRouteFunc) []types.Endpoint {
 	var routes []string
 
 	endpoints := createEndpoints(gate.config, service)
@@ -128,12 +112,12 @@ func removeRoutes(gate *Gateway, oldService servicediscovery.Service, removeRout
 	})
 }
 
-func createEndpoints(config *config.Config, service servicediscovery.Service) []Endpoint {
+func createEndpoints(config *config.Config, service servicediscovery.Service) []types.Endpoint {
 	configEndpoints := findConfigEndpoints(config.Endpoints, service.Resource)
-	var endPoints []Endpoint
+	var endPoints []types.Endpoint
 
 	for _, endp := range configEndpoints {
-		var endPoint Endpoint
+		var endPoint types.Endpoint
 
 		endPoint.HandlerType = endp.HandlerType
 		if endPoint.HandlerType == "" {
@@ -160,7 +144,7 @@ func createEndpoints(config *config.Config, service servicediscovery.Service) []
 
 	//add default route if no config found
 	if len(endPoints) == 0 {
-		var endPoint Endpoint
+		var endPoint types.Endpoint
 
 		endPoint.Secured = service.Secured
 		endPoint.HandlerType = DefaultHandlerType
@@ -188,7 +172,7 @@ func ListenAndServe(gate *Gateway, handler http.Handler) error {
 	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port), handler)
 }
 
-func getEndpointHandlers(gate *Gateway, endPoint Endpoint) http.Handler {
+func getEndpointHandlers(gate *Gateway, endPoint types.Endpoint) http.Handler {
 
 	//TODO: validation
 	handlerFunc := gate.handlers[endPoint.HandlerType]
@@ -224,7 +208,7 @@ func handleFilterError(responseWriter http.ResponseWriter, request *http.Request
 	}
 }
 
-func runPreFilters(preFilters []PreFilterFunc, request *http.Request) error {
+func runPreFilters(preFilters []types.PreFilterFunc, request *http.Request) error {
 	for _, filter := range preFilters {
 		err := filter(request)
 		if err != nil {
