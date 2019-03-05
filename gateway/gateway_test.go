@@ -134,7 +134,7 @@ var (
 
 func TestAddService(t *testing.T) {
 	gate := NewGateway(&testConfig1)
-	RegisterHandler(gate)("http", func(endpoint Endpoint) http.Handler {
+	RegisterHandler(gate)(DefaultHandlerType, func(endpoint Endpoint) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 
 		})

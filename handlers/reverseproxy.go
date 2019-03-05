@@ -63,7 +63,7 @@ func GetDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *htt
 			req.Header.Set("User-Agent", "")
 		}
 
-		log.Debugf("Forwarding request from %v to %v", initial, req.URL.String())
+		log.Tracef("Forwarding request from %v to %v", initial, req.URL.String())
 	}
 }
 

@@ -24,8 +24,6 @@ func NewDynamicRouter(routeMatcher RouteMatcherFunc) *dynamicRouter {
 
 func GetHandler(router *dynamicRouter) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("X-Gateway", "GoGateway")
-
 		route, routeMatch := matchRoute(router.routes, request)
 		if !routeMatch.Matched {
 			http.NotFound(writer, request)

@@ -4,7 +4,7 @@
   "port": 8000,
   "in_cluster": false,
   "override_service_address": "http://kube-worker1:30293/",
-  "log_level": "DEBUG",
+  "log_level": "TRACE",
   "metrics": {
     "enabled": true,
     "collection_time": "60s",
@@ -36,13 +36,16 @@
         "GET"
       ],
       "filters": {
-        "AUTH": {
-          "scopes": [
-            "scope1",
-            "scope2"
-          ]
+        "auth": {
+          "allowed_scopes": [
+            "LSNG.Api.read_only",
+            "Notifier.Api.write"
+          ],
+          "claims_requirement": {
+            "client_id": "CharismaFinancialServices"
+          }
         },
-        "RATE_LIMIT": {
+        "rate_limit": {
           "limit": 500
         }
       }
@@ -51,9 +54,9 @@
       "service_name": "downstream-api-1",
       "upstream_path_prefix": "/downstream-api-1",
       "filters": {
-        "AUTH": {
-          "scopes": [
-            "scope1",
+        "auth": {
+          "allowed_scopes": [
+            "LSNG.Api.read_only",
             "scope2"
           ]
         }
@@ -70,6 +73,13 @@
         "durable_name": "durable",
         "topic_prefix": "ch.Commands.blalb."
       }
+    }
+  },
+  "filters": {
+    "auth": {
+      "authority": "http://kube-worker1:30692",
+      "well_known_jwks": "http://kube-worker1:30692/.well-known/openid-configuration/jwks",
+      "audience": "LSNG.Api"
     }
   }
 }
