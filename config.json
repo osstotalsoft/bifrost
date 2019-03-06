@@ -68,7 +68,7 @@
         "client_id": "GoGatewayClientId",
         "q_group": "GoGateway",
         "durable_name": "durable",
-        "topic_prefix": "ch.Commands.blalb."
+        "topic_prefix": "LSNG_LIVIU_"
       }
     }
   }

@@ -12,4 +12,4 @@
 *.out
 
 # IDE settings
-.idea/
+.idea/**

@@ -27,8 +27,11 @@ func main() {
 	registerHandlerFunc := gateway.RegisterHandler(gate)
 
 	//gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
+	natsHandler, natsConn := handlers.NewNatsPublisher(getNatsHandlerConfig())
+	defer natsConn.Close()
+
 	gateway.UseMiddleware(gate)("AUTH", filters.AuthorizationFilter())
-	registerHandlerFunc("event", handlers.NewNatsPublisher(getNatsHandlerConfig()))
+	registerHandlerFunc("event", natsHandler)
 	registerHandlerFunc("http", handlers.NewReverseProxy())
 
 	addRouteFunc := r.AddRoute(dynRouter)
