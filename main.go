@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/osstotalsoft/bifrost/config"
-	"github.com/osstotalsoft/bifrost/filters"
+	"github.com/osstotalsoft/bifrost/filters/auth"
 	"github.com/osstotalsoft/bifrost/gateway"
 	"github.com/osstotalsoft/bifrost/handlers"
 	r "github.com/osstotalsoft/bifrost/router"
@@ -26,8 +26,7 @@ func main() {
 	gate := gateway.NewGateway(cfg)
 	registerHandlerFunc := gateway.RegisterHandler(gate)
 
-	//gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
-	gateway.UseMiddleware(gate)(filters.AuthorizationFilterCode, filters.AuthorizationFilter(getIdentityServerConfig()))
+	gateway.UseMiddleware(gate)(auth.AuthorizationFilterCode, auth.AuthorizationFilter(getIdentityServerConfig()))
 	registerHandlerFunc(handlers.EventPublisherHandlerType, handlers.NewNatsPublisher(getNatsHandlerConfig()))
 	registerHandlerFunc(handlers.ReverseProxyHandlerType, handlers.NewReverseProxy())
 
@@ -88,8 +87,8 @@ func getNatsHandlerConfig() handlers.NatsConfig {
 	return *cfg
 }
 
-func getIdentityServerConfig() filters.AuthorizationOptions {
-	var cfg = new(filters.AuthorizationOptions)
+func getIdentityServerConfig() auth.AuthorizationOptions {
+	var cfg = new(auth.AuthorizationOptions)
 	err := viper.UnmarshalKey("filters.auth", cfg)
 	if err != nil {
 		log.Panicf("unable to decode into AuthorizationOptions, %v", err)

@@ -167,7 +167,7 @@ var (
 	}
 )
 
-func TestGatewayHTTP(t *testing.T) {
+func TestGatewayReverseProxy(t *testing.T) {
 
 	log.SetLevel(log.DebugLevel)
 

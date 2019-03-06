@@ -1,15 +1,13 @@
-package filters
+package auth
 
 import (
-	"github.com/auth0-community/go-auth0"
+	"errors"
+	"github.com/dgrijalva/jwt-go"
+	jwtRequest "github.com/dgrijalva/jwt-go/request"
 	"github.com/mitchellh/mapstructure"
 	"github.com/osstotalsoft/bifrost/gateway"
-	"github.com/osstotalsoft/bifrost/strutils"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/square/go-jose.v2"
-	"gopkg.in/square/go-jose.v2/jwt"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -19,6 +17,9 @@ type AuthorizationOptions struct {
 	Authority        string `mapstructure:"authority"`
 	Audience         string `mapstructure:"audience"`
 	WellKnownJwksUrl string `mapstructure:"well_known_jwks"`
+
+	PublicKeyGetter jwt.Keyfunc
+	Extractor       jwtRequest.Extractor
 }
 
 type AuthorizationEndpointOptions struct {
@@ -26,16 +27,13 @@ type AuthorizationEndpointOptions struct {
 	AllowedScopes     []string          `mapstructure:"allowed_scopes"`
 }
 
-type customClaims struct {
-	jwt.Claims
-	Scopes      string `json:"scope,omitempty"`
-	OtherClaims map[string]interface{}
-}
-
 func AuthorizationFilter(opts AuthorizationOptions) func(endpoint gateway.Endpoint) func(next http.Handler) http.Handler {
-	client := auth0.NewJWKClient(auth0.JWKClientOptions{URI: opts.WellKnownJwksUrl}, nil)
-	configuration := auth0.NewConfiguration(client, []string{opts.Audience}, opts.Authority, jose.RS256)
-	validator := auth0.NewValidator(configuration, nil)
+	if opts.Extractor == nil {
+		opts.Extractor = jwtRequest.OAuth2Extractor
+	}
+	if opts.PublicKeyGetter == nil {
+		opts.PublicKeyGetter = PublicKeyGetter(opts.WellKnownJwksUrl)
+	}
 
 	return func(endpoint gateway.Endpoint) func(next http.Handler) http.Handler {
 		cfg := AuthorizationEndpointOptions{}
@@ -54,9 +52,9 @@ func AuthorizationFilter(opts AuthorizationOptions) func(endpoint gateway.Endpoi
 				//log.Info("AuthorizationFilter")
 				start := time.Now()
 
-				token, err := validator.ValidateRequest(request)
+				token, err := validateRequest(request, opts)
 				if err != nil {
-					log.Errorln("AuthorizationFilter: Token is not valid:", token, err)
+					log.Errorln("AuthorizationFilter: Token is not valid:", err)
 					Unauthorized(writer)
 					return
 				}
@@ -64,19 +62,11 @@ func AuthorizationFilter(opts AuthorizationOptions) func(endpoint gateway.Endpoi
 				log.Debugf("AuthorizationFilter: ValidateRequest took %s", time.Since(start))
 
 				if len(cfg.AllowedScopes) > 0 || len(cfg.ClaimsRequirement) > 0 {
-					claims := customClaims{}
-					err = validator.Claims(request, token, &claims)
-					if err != nil {
-						log.Debug(err)
-						log.Debug("AuthorizationFilter: Invalid claims", token)
-						Unauthorized(writer)
-						return
-					}
 
 					log.Debugf("AuthorizationFilter: Claims decoder took %s", time.Since(start))
 
 					if len(cfg.AllowedScopes) > 0 {
-						hasScope := checkScopes(cfg.AllowedScopes, strings.Split(claims.Scopes, ""))
+						hasScope := checkScopes(cfg.AllowedScopes, token.Claims.(jwt.MapClaims)["scope"].([]interface{}))
 						if !hasScope {
 							Forbidden(writer)
 							return
@@ -94,6 +84,25 @@ func AuthorizationFilter(opts AuthorizationOptions) func(endpoint gateway.Endpoi
 	}
 }
 
+func validateRequest(request *http.Request, opts AuthorizationOptions) (*jwt.Token, error) {
+	token, err := jwtRequest.ParseFromRequest(request, opts.Extractor, opts.PublicKeyGetter)
+
+	if err != nil {
+		return nil, err
+	}
+
+	checkAud := verifyAudience(opts.Audience, token.Claims.(jwt.MapClaims)["aud"])
+	if !checkAud {
+		return token, errors.New("invalid audience")
+	}
+	// Verify 'iss' claim
+	checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(opts.Authority, true)
+	if !checkIss {
+		return token, errors.New("invalid issuer")
+	}
+	return token, err
+}
+
 func Unauthorized(writer http.ResponseWriter) {
 	writer.WriteHeader(http.StatusUnauthorized)
 	_, _ = writer.Write([]byte("Unauthorized"))
@@ -104,7 +113,30 @@ func Forbidden(writer http.ResponseWriter) {
 	_, _ = writer.Write([]byte("Insufficient scopes."))
 }
 
-func checkScopes(requiredScopes []string, userScopes []string) bool {
-	inter := strutils.Intersection(requiredScopes, userScopes)
-	return len(inter) > 0
+func checkScopes(requiredScopes []string, userScopes []interface{}) bool {
+	for _, el := range userScopes {
+		for _, el1 := range requiredScopes {
+			if el == el1 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func verifyAudience(audience string, tokenAudience interface{}) bool {
+	switch tokenAudience.(type) {
+	case string:
+		return tokenAudience == audience
+	case []interface{}:
+		{
+			for _, aud := range tokenAudience.([]interface{}) {
+				if aud == audience {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
