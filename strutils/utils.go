@@ -13,3 +13,17 @@ func SingleJoiningSlash(a, b string) string {
 	}
 	return a + b
 }
+
+func Intersection(s1, s2 []string) (inter []string) {
+	hash := make(map[string]bool)
+	for _, e := range s1 {
+		hash[e] = true
+	}
+	for _, e := range s2 {
+		// If elements present in the hashmap then append intersection list.
+		if hash[e] {
+			inter = append(inter, e)
+		}
+	}
+	return
+}

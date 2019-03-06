@@ -11,15 +11,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const DefaultHandlerType = "http"
+const DefaultHandlerType = "reverseproxy"
 
-type PreFilterFunc func(request *http.Request) error
-type PostFilterFunc func(request, proxyRequest *http.Request, proxyResponse *http.Response) ([]byte, error)
 type MiddlewareFunc func(endpoint Endpoint) func(http.Handler) http.Handler
 type HandlerFunc func(endpoint Endpoint) http.Handler
 
 type Gateway struct {
-	preFilters            []PreFilterFunc
 	config                *config.Config
 	endPointToRouteMapper sync.Map
 	middlewares           []middlewareTuple
@@ -35,6 +32,7 @@ type Endpoint struct {
 	Methods              []string
 	HandlerType          string
 	HandlerConfig        map[string]interface{}
+	Filters              map[string]interface{}
 }
 
 type middlewareTuple struct {
@@ -47,9 +45,8 @@ func NewGateway(config *config.Config) *Gateway {
 		log.Panicf("Gateway: Must provide a configuration file")
 	}
 	return &Gateway{
-		config:     config,
-		preFilters: []PreFilterFunc{},
-		handlers:   map[string]HandlerFunc{},
+		config:   config,
+		handlers: map[string]HandlerFunc{},
 	}
 }
 
@@ -62,12 +59,6 @@ func AddService(gate *Gateway) AddServiceFunc {
 		return func(service servicediscovery.Service) {
 			internalAddService(gate, service, addRouteFunc)
 		}
-	}
-}
-
-func AddPreFilter(gate *Gateway) func(f PreFilterFunc) {
-	return func(f PreFilterFunc) {
-		gate.preFilters = append(gate.preFilters, f)
 	}
 }
 
@@ -136,6 +127,7 @@ func createEndpoints(config *config.Config, service servicediscovery.Service) []
 
 		endPoint.HandlerType = endp.HandlerType
 		endPoint.HandlerConfig = endp.HandlerConfig
+		endPoint.Filters = endp.Filters
 		if endPoint.HandlerType == "" {
 			endPoint.HandlerType = DefaultHandlerType
 		}
@@ -191,16 +183,11 @@ func getEndpointHandler(gate *Gateway, endPoint Endpoint) http.Handler {
 	//TODO: validation
 	handlerFunc := gate.handlers[endPoint.HandlerType]
 	handler := handlerFunc(endPoint)
+	name := gate.config.Name
 
 	var h http.Handler
 	h = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("X-Gateway", "GoGateway")
-		err := runPreFilters(gate.preFilters, request)
-		if err != nil {
-			handleFilterError(writer, request, err)
-			return
-		}
-
+		writer.Header().Set("X-Gateway", name)
 		handler.ServeHTTP(writer, request)
 	})
 
@@ -209,23 +196,4 @@ func getEndpointHandler(gate *Gateway, endPoint Endpoint) http.Handler {
 	}
 
 	return h
-}
-
-func handleFilterError(responseWriter http.ResponseWriter, request *http.Request, err error) {
-	responseWriter.Header().Set("Content/Type", "text/html")
-	responseWriter.WriteHeader(500)
-	_, err = responseWriter.Write([]byte(err.Error()))
-	if err != nil {
-		log.Errorln(err)
-	}
-}
-
-func runPreFilters(preFilters []PreFilterFunc, request *http.Request) error {
-	for _, filter := range preFilters {
-		err := filter(request)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

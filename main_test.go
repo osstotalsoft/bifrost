@@ -167,7 +167,7 @@ var (
 	}
 )
 
-func TestGatewayHTTP(t *testing.T) {
+func TestGatewayReverseProxy(t *testing.T) {
 
 	log.SetLevel(log.DebugLevel)
 
@@ -191,7 +191,7 @@ func TestGatewayHTTP(t *testing.T) {
 
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
 	gate := gateway.NewGateway(&testConfig2)
-	gateway.RegisterHandler(gate)("http", handlers.NewReverseProxy())
+	gateway.RegisterHandler(gate)(handlers.ReverseProxyHandlerType, handlers.NewReverseProxy())
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 

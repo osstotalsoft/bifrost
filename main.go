@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/osstotalsoft/bifrost/config"
-	"github.com/osstotalsoft/bifrost/filters"
+	"github.com/osstotalsoft/bifrost/filters/auth"
 	"github.com/osstotalsoft/bifrost/gateway"
 	"github.com/osstotalsoft/bifrost/handlers"
 	r "github.com/osstotalsoft/bifrost/router"
@@ -30,9 +30,9 @@ func main() {
 	natsHandler, natsConn := handlers.NewNatsPublisher(getNatsHandlerConfig())
 	defer natsConn.Close()
 
-	gateway.UseMiddleware(gate)("AUTH", filters.AuthorizationFilter())
-	registerHandlerFunc("event", natsHandler)
-	registerHandlerFunc("http", handlers.NewReverseProxy())
+	gateway.UseMiddleware(gate)(auth.AuthorizationFilterCode, auth.AuthorizationFilter(getIdentityServerConfig()))
+	registerHandlerFunc(handlers.EventPublisherHandlerType, natsHandler)
+	registerHandlerFunc(handlers.ReverseProxyHandlerType, handlers.NewReverseProxy())
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
@@ -86,6 +86,16 @@ func getNatsHandlerConfig() handlers.NatsConfig {
 	err := viper.UnmarshalKey("handlers.event.nats", cfg)
 	if err != nil {
 		log.Panicf("unable to decode into NatsConfig, %v", err)
+	}
+
+	return *cfg
+}
+
+func getIdentityServerConfig() auth.AuthorizationOptions {
+	var cfg = new(auth.AuthorizationOptions)
+	err := viper.UnmarshalKey("filters.auth", cfg)
+	if err != nil {
+		log.Panicf("unable to decode into AuthorizationOptions, %v", err)
 	}
 
 	return *cfg
