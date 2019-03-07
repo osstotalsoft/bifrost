@@ -3,11 +3,11 @@ package main
 import (
 	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/gateway"
-	"github.com/osstotalsoft/bifrost/handlers"
+	"github.com/osstotalsoft/bifrost/handler"
+	"github.com/osstotalsoft/bifrost/handler/reverseproxy"
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,7 +27,7 @@ var (
 	testConfig2 = config.Config{
 		DownstreamPathPrefix: "",
 		UpstreamPathPrefix:   "/api",
-		Endpoints: []config.Endpoint{
+		Endpoints: []config.EndpointConfig{
 			{
 				UpstreamPathPrefix:   "/api/v1/users",
 				UpstreamPath:         "",
@@ -191,7 +191,7 @@ func TestGatewayReverseProxy(t *testing.T) {
 
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
 	gate := gateway.NewGateway(&testConfig2)
-	gateway.RegisterHandler(gate)(handlers.ReverseProxyHandlerType, handlers.NewReverseProxy())
+	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy())
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 
@@ -222,12 +222,4 @@ func TestGatewayReverseProxy(t *testing.T) {
 			})
 		}
 	})
-}
-
-func RandomString(len int) string {
-	bytes := make([]byte, len)
-	for i := 0; i < len; i++ {
-		bytes[i] = byte(65 + rand.Intn(25)) //A=65 and Z = 65+25
-	}
-	return string(bytes)
 }

@@ -1,7 +1,8 @@
-package handlers
+package reverseproxy
 
 import (
-	"github.com/osstotalsoft/bifrost/gateway"
+	"github.com/osstotalsoft/bifrost/abstraction"
+	"github.com/osstotalsoft/bifrost/handler"
 	"github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/strutils"
 	log "github.com/sirupsen/logrus"
@@ -20,9 +21,9 @@ type HttpHandlerEndpointConfig struct {
 	UpstreamPathPrefix string `mapstructure:"upstream_path_prefix"`
 }
 
-func NewReverseProxy() gateway.HandlerFunc {
+func NewReverseProxy() handler.Func {
 
-	return func(endPoint gateway.Endpoint) http.Handler {
+	return func(endPoint abstraction.Endpoint) http.Handler {
 		//https://github.com/golang/go/issues/16012
 		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 

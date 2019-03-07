@@ -3,15 +3,14 @@ package auth
 import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/test"
-	"github.com/osstotalsoft/bifrost/gateway"
-	log "github.com/sirupsen/logrus"
+	"github.com/osstotalsoft/bifrost/abstraction"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-var testEndPoint = gateway.Endpoint{
+var testEndPoint = abstraction.Endpoint{
 	Secured: true,
 	Filters: map[string]interface{}{
 		"auth": AuthorizationEndpointOptions{
@@ -54,12 +53,7 @@ var claims = jwt.MapClaims{
 	},
 }
 
-func init() {
-
-}
-
 func TestAuthorizationFilter(t *testing.T) {
-	// load keys from disk
 	privateKey := test.LoadRSAPrivateKeyFromDisk("sample_key")
 	publicKey := test.LoadRSAPublicKeyFromDisk("sample_key.pub")
 	intentityConfig.PublicKeyGetter = func(*jwt.Token) (interface{}, error) {
@@ -68,23 +62,42 @@ func TestAuthorizationFilter(t *testing.T) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tokenString, _ := token.SignedString(privateKey)
-	log.Info(tokenString)
 
 	filter := AuthorizationFilter(intentityConfig)(testEndPoint)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "OK")
 	})
-
 	req := httptest.NewRequest("GET", "/whaterver", nil)
 	req.Header.Add("Authorization", "Bearer "+tokenString)
 	w := httptest.NewRecorder()
 	filter(handler).ServeHTTP(w, req)
-
 	result := w.Result()
 
-	log.Info(result)
+	if result.StatusCode != http.StatusOK {
+		t.Fatalf("")
+	}
 }
 
 func BenchmarkAuthorizationFilter(b *testing.B) {
+	privateKey := test.LoadRSAPrivateKeyFromDisk("sample_key")
+	publicKey := test.LoadRSAPublicKeyFromDisk("sample_key.pub")
+	intentityConfig.PublicKeyGetter = func(*jwt.Token) (interface{}, error) {
+		return publicKey, nil
+	}
 
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	tokenString, _ := token.SignedString(privateKey)
+
+	filter := AuthorizationFilter(intentityConfig)(testEndPoint)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "OK")
+	})
+	req := httptest.NewRequest("GET", "/whaterver", nil)
+	req.Header.Add("Authorization", "Bearer "+tokenString)
+	w := httptest.NewRecorder()
+
+	for i := 0; i < b.N; i++ {
+		filter(handler).ServeHTTP(w, req)
+		w.Result()
+	}
 }

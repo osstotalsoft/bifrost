@@ -5,7 +5,8 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	jwtRequest "github.com/dgrijalva/jwt-go/request"
 	"github.com/mitchellh/mapstructure"
-	"github.com/osstotalsoft/bifrost/gateway"
+	"github.com/osstotalsoft/bifrost/abstraction"
+	"github.com/osstotalsoft/bifrost/middleware"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
@@ -27,7 +28,7 @@ type AuthorizationEndpointOptions struct {
 	AllowedScopes     []string          `mapstructure:"allowed_scopes"`
 }
 
-func AuthorizationFilter(opts AuthorizationOptions) func(endpoint gateway.Endpoint) func(next http.Handler) http.Handler {
+func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 	if opts.Extractor == nil {
 		opts.Extractor = jwtRequest.OAuth2Extractor
 	}
@@ -35,7 +36,7 @@ func AuthorizationFilter(opts AuthorizationOptions) func(endpoint gateway.Endpoi
 		opts.PublicKeyGetter = PublicKeyGetter(opts.WellKnownJwksUrl)
 	}
 
-	return func(endpoint gateway.Endpoint) func(next http.Handler) http.Handler {
+	return func(endpoint abstraction.Endpoint) func(http.Handler) http.Handler {
 		cfg := AuthorizationEndpointOptions{}
 		if fl, ok := endpoint.Filters[AuthorizationFilterCode]; ok {
 			err := mapstructure.Decode(fl, &cfg)

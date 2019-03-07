@@ -1,21 +1,21 @@
-package handlers
+package nats
 
 import (
 	"encoding/json"
 	"errors"
-	"github.com/auth0-community/go-auth0"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nats-io/go-nats-streaming"
 	"github.com/osstotalsoft/bifrost/gateway"
 	"github.com/satori/go.uuid"
+	"github.com/osstotalsoft/bifrost/abstraction"
+	"github.com/osstotalsoft/bifrost/handler"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/square/go-jose.v2"
 	"io/ioutil"
 	"net/http"
 	"time"
 )
 
-type NatsConfig struct {
+type Config struct {
 	NatsUrl     string `mapstructure:"nats_url"`
 	Cluster     string `mapstructure:"cluster"`
 	ClientId    string `mapstructure:"client_id"`
@@ -24,10 +24,11 @@ type NatsConfig struct {
 	TopicPrefix string `mapstructure:"topic_prefix"`
 }
 
-type NatsEndpointConfig struct {
+type EndpointConfig struct {
 	Topic string `mapstructure:"topic"`
 }
 
+func NewNatsPublisher(config Config) handler.Func {
 type NatsConnection struct {
 	internalConn *stan.Conn
 }
@@ -44,13 +45,11 @@ type CommandResult struct {
 
 func NewNatsPublisher(config NatsConfig) (gateway.HandlerFunc, NatsConnection) {
 
-	natsConnection, _ := connect(config.NatsUrl, config.ClientId, config.Cluster)
-
-	handlerFunc := func(endpoint gateway.Endpoint) http.Handler {
+	return func(endpoint abstraction.Endpoint) http.Handler {
 		var h http.Handler
-		var endpointConfig NatsEndpointConfig
+		var cfg EndpointConfig
 
-		_ = mapstructure.Decode(endpoint.HandlerConfig, &endpointConfig)
+		_ = mapstructure.Decode(endpoint.HandlerConfig, &cfg)
 
 		h = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 
