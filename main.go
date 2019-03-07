@@ -2,11 +2,13 @@ package main
 
 import (
 	"github.com/osstotalsoft/bifrost/config"
-	"github.com/osstotalsoft/bifrost/filters/auth"
 	"github.com/osstotalsoft/bifrost/gateway"
-	"github.com/osstotalsoft/bifrost/handlers"
+	"github.com/osstotalsoft/bifrost/handler"
+	"github.com/osstotalsoft/bifrost/handler/nats"
+	"github.com/osstotalsoft/bifrost/handler/reverseproxy"
+	"github.com/osstotalsoft/bifrost/middleware/auth"
 	r "github.com/osstotalsoft/bifrost/router"
-	"github.com/osstotalsoft/bifrost/servicediscovery/providers/kubernetes"
+	"github.com/osstotalsoft/bifrost/servicediscovery/provider/kubernetes"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"net/http"
@@ -27,8 +29,8 @@ func main() {
 	registerHandlerFunc := gateway.RegisterHandler(gate)
 
 	gateway.UseMiddleware(gate)(auth.AuthorizationFilterCode, auth.AuthorizationFilter(getIdentityServerConfig()))
-	registerHandlerFunc(handlers.EventPublisherHandlerType, handlers.NewNatsPublisher(getNatsHandlerConfig()))
-	registerHandlerFunc(handlers.ReverseProxyHandlerType, handlers.NewReverseProxy())
+	registerHandlerFunc(handler.EventPublisherHandlerType, nats.NewNatsPublisher(getNatsHandlerConfig()))
+	registerHandlerFunc(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy())
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
@@ -77,8 +79,8 @@ func getConfig() *config.Config {
 	return cfg
 }
 
-func getNatsHandlerConfig() handlers.NatsConfig {
-	var cfg = new(handlers.NatsConfig)
+func getNatsHandlerConfig() nats.Config {
+	var cfg = new(nats.Config)
 	err := viper.UnmarshalKey("handlers.event.nats", cfg)
 	if err != nil {
 		log.Panicf("unable to decode into NatsConfig, %v", err)

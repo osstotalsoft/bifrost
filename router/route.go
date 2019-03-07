@@ -27,7 +27,7 @@ func (r Route) String() string {
 	return r.PathPrefix + r.Path
 }
 
-func matchRoute(routes *sync.Map, request *http.Request) (Route, RouteMatch) {
+func MatchRoute(routes *sync.Map, request *http.Request) (Route, RouteMatch) {
 
 	var resRM RouteMatch
 	var resR Route

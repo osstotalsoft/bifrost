@@ -24,7 +24,7 @@ func NewDynamicRouter(routeMatcher RouteMatcherFunc) *dynamicRouter {
 
 func GetHandler(router *dynamicRouter) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		route, routeMatch := matchRoute(router.routes, request)
+		route, routeMatch := MatchRoute(router.routes, request)
 		if !routeMatch.Matched {
 			http.NotFound(writer, request)
 			return

@@ -7,18 +7,18 @@ import (
 )
 
 type Config struct {
-	Endpoints              []Endpoint `mapstructure:"endpoints"`
-	Port                   int        `mapstructure:"port"`
-	Version                string     `mapstructure:"version"`
-	Name                   string     `mapstructure:"name"`
-	UpstreamPathPrefix     string     `mapstructure:"upstream_path_prefix"`
-	DownstreamPathPrefix   string     `mapstructure:"downstream_path_prefix"`
-	LogLevel               string     `mapstructure:"log_level"`
-	InCluster              bool       `mapstructure:"in_cluster"`
-	OverrideServiceAddress string     `mapstructure:"override_service_address"`
+	Endpoints              []EndpointConfig `mapstructure:"endpoints"`
+	Port                   int              `mapstructure:"port"`
+	Version                string           `mapstructure:"version"`
+	Name                   string           `mapstructure:"name"`
+	UpstreamPathPrefix     string           `mapstructure:"upstream_path_prefix"`
+	DownstreamPathPrefix   string           `mapstructure:"downstream_path_prefix"`
+	LogLevel               string           `mapstructure:"log_level"`
+	InCluster              bool             `mapstructure:"in_cluster"`
+	OverrideServiceAddress string           `mapstructure:"override_service_address"`
 }
 
-type Endpoint struct {
+type EndpointConfig struct {
 	UpstreamPath         string                 `mapstructure:"upstream_path"`
 	UpstreamPathPrefix   string                 `mapstructure:"upstream_path_prefix"`
 	DownstreamPath       string                 `mapstructure:"downstream_path"`

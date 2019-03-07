@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"net/http"
@@ -19,7 +20,7 @@ var (
 	testConfig1 = config.Config{
 		DownstreamPathPrefix: "",
 		UpstreamPathPrefix:   "/api",
-		Endpoints: []config.Endpoint{
+		Endpoints: []config.EndpointConfig{
 			{
 				UpstreamPathPrefix:   "/api/v1",
 				DownstreamPathPrefix: "/users",
@@ -134,9 +135,8 @@ var (
 
 func TestAddService(t *testing.T) {
 	gate := NewGateway(&testConfig1)
-	RegisterHandler(gate)(DefaultHandlerType, func(endpoint Endpoint) http.Handler {
+	RegisterHandler(gate)(DefaultHandlerType, func(endpoint abstraction.Endpoint) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-
 		})
 	})
 
