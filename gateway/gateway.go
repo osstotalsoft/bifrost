@@ -168,15 +168,19 @@ func ListenAndServe(gate *Gateway, handler http.Handler) error {
 
 func getEndpointHandler(gate *Gateway, endPoint abstraction.Endpoint) http.Handler {
 
-	//TODO: validation
-	handlerFunc := gate.handlers[endPoint.HandlerType]
-	handl := handlerFunc(endPoint)
+	handlerFunc, ok := gate.handlers[endPoint.HandlerType]
+	if !ok {
+		log.Fatalf("handler %v is not registered", endPoint.HandlerType)
+		return nil
+	}
+
+	handler := handlerFunc(endPoint)
 	name := gate.config.Name
 
 	var h http.Handler
 	h = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("X-Gateway", name)
-		handl.ServeHTTP(writer, request)
+		handler.ServeHTTP(writer, request)
 	})
 
 	for i := len(gate.middlewares) - 1; i >= 0; i-- {

@@ -18,7 +18,7 @@
   "upstream_path_prefix": "/api",
   "endpoints": [
     {
-      "service_name": "downstream-api-2",
+      "service_name": "downstream-api-1",
       "downstream_path_prefix": "/messaging/offers/computeOfferStates",
       "handler_type": "event",
       "handler_config": {
@@ -71,7 +71,7 @@
         "client_id": "GoGatewayClientId",
         "q_group": "GoGateway",
         "durable_name": "durable",
-        "topic_prefix": "ch.Commands.blalb."
+        "topic_prefix": "LSNG_LIVIU_"
       }
     }
   },
