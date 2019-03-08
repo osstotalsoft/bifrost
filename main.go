@@ -29,12 +29,12 @@ func main() {
 	registerHandlerFunc := gateway.RegisterHandler(gate)
 
 	//gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
-	natsHandler, natsConn := nats.NewNatsPublisher(getNatsHandlerConfig())
+	natsHandler, natsConn := nats.NewNatsPublisher(getNatsHandlerConfig(), nats.TransformMessage, nats.BuildResponse)
 	defer natsConn.Close()
 
 	gateway.UseMiddleware(gate)(auth.AuthorizationFilterCode, auth.AuthorizationFilter(getIdentityServerConfig()))
-	registerHandlerFunc(handlers.EventPublisherHandlerType, natsHandler)
-	registerHandlerFunc(handlers.ReverseProxyHandlerType, reverseproxy.NewReverseProxy())
+	registerHandlerFunc(handler.EventPublisherHandlerType, natsHandler)
+	registerHandlerFunc(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy())
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)

@@ -1,18 +1,14 @@
 package nats
 
 import (
-	"encoding/json"
-	"errors"
+	"context"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nats-io/go-nats-streaming"
-	"github.com/osstotalsoft/bifrost/gateway"
-	"github.com/satori/go.uuid"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/handler"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
-	"time"
 )
 
 type Config struct {
@@ -28,109 +24,71 @@ type EndpointConfig struct {
 	Topic string `mapstructure:"topic"`
 }
 
-func NewNatsPublisher(config Config) handler.Func {
 type NatsConnection struct {
 	internalConn *stan.Conn
 }
 
-type Message struct {
-	Headers map[string]interface{}
-	Payload map[string]interface{}
-}
+type TransformMessageFunc func(payloadBytes []byte, messageContext map[string]interface{}, requestContext context.Context) ([]byte, error)
+type BuildResponseFunc func(messageContext map[string]interface{}, requestContext context.Context) ([]byte, error)
 
-type CommandResult struct {
-	CommandId     uuid.UUID
-	CorrelationId uuid.UUID
-}
+func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, buildResponseFunc BuildResponseFunc) (handler.Func, NatsConnection) {
 
-func NewNatsPublisher(config NatsConfig) (gateway.HandlerFunc, NatsConnection) {
+	natsConnection, err := connect(config.NatsUrl, config.ClientId, config.Cluster)
+	if err != nil {
+		log.Error(err)
+		return nil, natsConnection
+	}
 
-	return func(endpoint abstraction.Endpoint) http.Handler {
+	handlerFunc := func(endpoint abstraction.Endpoint) http.Handler {
 		var h http.Handler
 		var cfg EndpointConfig
 
 		_ = mapstructure.Decode(endpoint.HandlerConfig, &cfg)
 
 		h = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			var messageContext = map[string]interface{}{}
+			topic := config.TopicPrefix + cfg.Topic
 
-			/*claims, err := getClaims(request)
-			if  err != nil {
-				http.Error(writer, err.Error(), http.StatusUnauthorized)
+			messageBytes, err := ioutil.ReadAll(request.Body)
+			if err != nil {
+				log.Error(err)
+				http.Error(writer, "Bad request", http.StatusBadRequest)
 				return
 			}
-			userId := claims["sub"]
-			charismaUserId := claims["charisma_userid"]*/
 
-			correlationId := uuid.NewV4()
-			commandId := uuid.NewV4()
-
-			headers := map[string]interface{}{
-				//"UserId": userId,
-				"CharismaUserId": 1, //charismaUserId,
-				"CorrelationId":  correlationId,
-			}
-			payloadChanges := map[string]interface{}{
-				"CommandId": commandId,
-				"Metadata":  map[string]interface{}{"CreatedDate": time.Now()},
+			if transformMessageFunc != nil {
+				messageBytes, err = transformMessageFunc(messageBytes, messageContext, request.Context())
+				if err != nil {
+					log.Error(err)
+					http.Error(writer, "Internal server error", http.StatusInternalServerError)
+					return
+				}
 			}
 
-			if err := publish(config.TopicPrefix, endpointConfig.Topic, natsConnection.internalConn, request, headers, payloadChanges); err != nil {
+			if err := (*natsConnection.internalConn).Publish(topic, messageBytes); err != nil {
+				log.Error(err)
 				http.Error(writer, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
-			responseBytes, _ := json.Marshal(CommandResult{CommandId: commandId, CorrelationId: correlationId})
+			log.Tracef("Forwarding request from %v to %v", request.URL.String(), topic)
 
-			writer.WriteHeader(200)
-			writer.Write(responseBytes)
+			if buildResponseFunc != nil {
+				responseBytes, err := buildResponseFunc(messageContext, request.Context())
+
+				if err != nil {
+					log.Error(err)
+					http.Error(writer, "Internal server error", http.StatusInternalServerError)
+					return
+				}
+
+				_, _ = writer.Write(responseBytes)
+			}
 		})
 
 		return h
 	}
-
 	return handlerFunc, natsConnection
-}
-
-func publish(topicPrefix, targetTopic string, nc *stan.Conn, req *http.Request,
-	headers, payloadChanges map[string]interface{}) error {
-	topic := topicPrefix + targetTopic
-
-	bodyBytes, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		log.Printf("Error reading body: %v", err)
-		err = errors.New("Nats publisher: could not read request body")
-		return err
-	}
-
-	envelopeBytes := envelopeMessage(bodyBytes, headers, payloadChanges)
-
-	// Publish the message
-	if err := (*nc).Publish(topic, envelopeBytes); err != nil {
-		log.Fatal(err)
-		return err
-	}
-
-	log.Debugf("Forwarding request from %v to %v", req.URL.String(), topic)
-	return nil
-}
-
-func envelopeMessage(payloadBytes []byte, headers, payloadChanges map[string]interface{}) []byte {
-
-	var payload map[string]interface{}
-
-	_ = json.Unmarshal(payloadBytes, &payload)
-	message := Message{
-		Headers: headers,
-		Payload: payload,
-	}
-
-	for k, v := range payloadChanges {
-		payload[k] = v
-	}
-
-	envelopeBytes, _ := json.Marshal(message)
-
-	return envelopeBytes
 }
 
 func connect(natsUrl, clientId, clusterId string) (NatsConnection, error) {
@@ -148,26 +106,4 @@ func (conn *NatsConnection) Close() {
 		//*conn.internalConn.Flush()
 		(*conn.internalConn).Close()
 	}
-}
-
-func getClaims(req *http.Request) (map[string]interface{}, error) {
-	client := auth0.NewJWKClient(auth0.JWKClientOptions{URI: "https://tech0.eu.auth0.com/.well-known/jwks.json"}, nil)
-	audience := []string{"http://localhost:8000/api/"}
-	configuration := auth0.NewConfiguration(client, audience, "https://tech0.eu.auth0.com/", jose.RS256)
-	validator := auth0.NewValidator(configuration, nil)
-
-	token, err := validator.ValidateRequest(req)
-	if err != nil {
-		log.Errorln("Token is not valid:", token, err)
-		return nil, err
-	}
-
-	claims := map[string]interface{}{}
-	err = validator.Claims(req, token, &claims)
-	if err != nil {
-		log.Errorln("Invalid claims:", err)
-		return nil, err
-	}
-
-	return claims, nil
 }

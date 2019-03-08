@@ -18,7 +18,7 @@
   "upstream_path_prefix": "/api",
   "endpoints": [
     {
-      "service_name": "downstream-api-2",
+      "service_name": "downstream-api-1",
       "downstream_path_prefix": "/messaging/offers/computeOfferStates",
       "handler_type": "event",
       "handler_config": {
