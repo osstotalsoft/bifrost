@@ -10,8 +10,14 @@ import (
 )
 
 const (
-	CorrelationIdKey = "CorellationId"
-	CommandIdKey     = "CommandId"
+	CorrelationIdKey   = "CorellationId"
+	CommandIdKey       = "CommandId"
+	UserIdKey          = "UserId"
+	CharismaUserIdKey  = "CharismaUserId"
+	MetadataKey        = "Metadata"
+	CreationDateKey    = "CreationDate"
+	UserIdClaimKey     = "sub"
+	CharismaIdClaimKey = "charisma_user_id"
 )
 
 type Message struct {
@@ -30,27 +36,27 @@ func TransformMessage(payloadBytes []byte, messageContext map[string]interface{}
 		return nil, err
 	}
 
-	userId, ok := claims["sub"]
+	userId, ok := claims[UserIdClaimKey]
 	if !ok {
-		return nil, errors.New("sub claim not found")
+		return nil, errors.New(UserIdClaimKey + " claim not found")
 	}
 
-	charismaUserId, ok := claims["charisma_user_id"]
+	charismaUserId, ok := claims[CharismaIdClaimKey]
 	if !ok {
-		return nil, errors.New("charisma_user_id claim not found")
+		return nil, errors.New(CharismaIdClaimKey + " claim not found")
 	}
 
 	correlationId := uuid.NewV4()
 	commandId := uuid.NewV4()
 
 	headers := map[string]interface{}{
-		"UserId":         userId,
-		"CharismaUserId": charismaUserId,
-		"CorrelationId":  correlationId,
+		UserIdKey:         userId,
+		CharismaUserIdKey: charismaUserId,
+		CorrelationIdKey:  correlationId,
 	}
 	payloadChanges := map[string]interface{}{
-		"CommandId": commandId,
-		"Metadata":  map[string]interface{}{"CreatedDate": time.Now()},
+		CommandIdKey: commandId,
+		MetadataKey:  map[string]interface{}{CreationDateKey: time.Now()},
 	}
 
 	messageContext[CorrelationIdKey] = correlationId
