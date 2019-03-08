@@ -23,13 +23,12 @@ type JSONWebKeys struct {
 
 var rsa *rsa2.PublicKey
 
-func PublicKeyGetter(wellKnownJwksUrl string) jwt.Keyfunc {
-	return func(token *jwt.Token) (interface{}, error) {
+func PublicKeyGetter(wellKnownJwksUrl string) func(tokenKeyId string) (*rsa2.PublicKey, error) {
+	return func(tokenKeyId string) (*rsa2.PublicKey, error) {
 
-		if _, ok := token.Header["kid"]; !ok {
+		if tokenKeyId == "" {
 			return nil, errors.New("KeyId header not found in token")
 		}
-		tokenKeyId := token.Header["kid"]
 
 		if rsa != nil {
 			return rsa, nil

@@ -1,9 +1,9 @@
 package auth
 
 import (
-	"errors"
-	"github.com/dgrijalva/jwt-go"
+	rsa2 "crypto/rsa"
 	jwtRequest "github.com/dgrijalva/jwt-go/request"
+	"github.com/gbrlsnchs/jwt/v3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/middleware"
@@ -19,7 +19,7 @@ type AuthorizationOptions struct {
 	Audience         string `mapstructure:"audience"`
 	WellKnownJwksUrl string `mapstructure:"well_known_jwks"`
 
-	PublicKeyGetter jwt.Keyfunc
+	PublicKeyGetter func(tokenKeyId string) (*rsa2.PublicKey, error)
 	Extractor       jwtRequest.Extractor
 }
 
@@ -53,7 +53,10 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 				//log.Info("AuthorizationFilter")
 				start := time.Now()
 
-				token, err := validateRequest(request, opts)
+				claims := &testPayload{}
+				res, err := validateRequest(request, opts)
+				_ = mapstructure.Decode(res, claims)
+
 				if err != nil {
 					log.Errorln("AuthorizationFilter: Token is not valid:", err)
 					Unauthorized(writer)
@@ -67,7 +70,7 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 					log.Debugf("AuthorizationFilter: Claims decoder took %s", time.Since(start))
 
 					if len(cfg.AllowedScopes) > 0 {
-						hasScope := checkScopes(cfg.AllowedScopes, token.Claims.(jwt.MapClaims)["scope"].([]interface{}))
+						hasScope := checkScopes(cfg.AllowedScopes, claims.Scope)
 						if !hasScope {
 							Forbidden(writer)
 							return
@@ -85,23 +88,58 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 	}
 }
 
-func validateRequest(request *http.Request, opts AuthorizationOptions) (*jwt.Token, error) {
-	token, err := jwtRequest.ParseFromRequest(request, opts.Extractor, opts.PublicKeyGetter)
+type testPayload struct {
+	jwt.Payload
+	UserId   string                 `json:"sub,omitempty"`
+	Scope    []string               `json:"scope,omitempty"`
+	AllOther map[string]interface{} `json:"-"`
+}
 
+func validateRequest(request *http.Request, opts AuthorizationOptions) (claims map[string]interface{}, err error) {
+
+	//token, err := jwtRequest.ParseFromRequest(request, opts.Extractor, opts.PublicKeyGetter)
+	claims = &testPayload{}
+
+	// perform extract
+	tokenString, err := opts.Extractor.ExtractToken(request)
 	if err != nil {
 		return nil, err
 	}
 
-	checkAud := verifyAudience(opts.Audience, token.Claims.(jwt.MapClaims)["aud"])
-	if !checkAud {
-		return token, errors.New("invalid audience")
+	token, err := jwt.Parse([]byte(tokenString))
+	if err != nil {
+		return nil, err
 	}
-	// Verify 'iss' claim
-	checkIss := token.Claims.(jwt.MapClaims).VerifyIssuer(opts.Authority, true)
-	if !checkIss {
-		return token, errors.New("invalid issuer")
+	header, err := token.Decode(claims)
+	if err != nil {
+		return nil, err
 	}
-	return token, err
+
+	key, err := opts.PublicKeyGetter(header.KeyID)
+	if err != nil {
+		return nil, err
+	}
+
+	rsa := jwt.NewRSA(jwt.SHA256, nil, key)
+
+	err = token.Verify(rsa)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	iatValidator := jwt.IssuedAtValidator(now)
+	expValidator := jwt.ExpirationTimeValidator(now, true)
+	notBeforeValidator := jwt.NotBeforeValidator(now)
+	audValidator := jwt.AudienceValidator(jwt.Audience{opts.Audience})
+	issuerValidator := jwt.IssuerValidator(opts.Authority)
+
+	err = claims.Validate(iatValidator, expValidator, audValidator, notBeforeValidator, issuerValidator)
+	if err != nil {
+		return nil, err
+	}
+
+	return claims, err
 }
 
 func Unauthorized(writer http.ResponseWriter) {
@@ -114,7 +152,7 @@ func Forbidden(writer http.ResponseWriter) {
 	_, _ = writer.Write([]byte("Insufficient scopes."))
 }
 
-func checkScopes(requiredScopes []string, userScopes []interface{}) bool {
+func checkScopes(requiredScopes []string, userScopes []string) bool {
 	for _, el := range userScopes {
 		for _, el1 := range requiredScopes {
 			if el == el1 {

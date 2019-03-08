@@ -1,9 +1,12 @@
 package auth
 
 import (
+	rsa2 "crypto/rsa"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/test"
 	"github.com/osstotalsoft/bifrost/abstraction"
+	"time"
+
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -56,9 +59,14 @@ var claims = jwt.MapClaims{
 func TestAuthorizationFilter(t *testing.T) {
 	privateKey := test.LoadRSAPrivateKeyFromDisk("sample_key")
 	publicKey := test.LoadRSAPublicKeyFromDisk("sample_key.pub")
-	intentityConfig.PublicKeyGetter = func(*jwt.Token) (interface{}, error) {
+	intentityConfig.PublicKeyGetter = func(tokenKeyId string) (key *rsa2.PublicKey, e error) {
 		return publicKey, nil
 	}
+
+	now := time.Now()
+	claims["exp"] = now.Add(24 * 30 * 12 * time.Hour).Unix()
+	claims["nbf"] = now.Add(-30 * time.Minute).Unix()
+	claims["iat"] = now.Unix()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tokenString, _ := token.SignedString(privateKey)
@@ -81,9 +89,14 @@ func TestAuthorizationFilter(t *testing.T) {
 func BenchmarkAuthorizationFilter(b *testing.B) {
 	privateKey := test.LoadRSAPrivateKeyFromDisk("sample_key")
 	publicKey := test.LoadRSAPublicKeyFromDisk("sample_key.pub")
-	intentityConfig.PublicKeyGetter = func(*jwt.Token) (interface{}, error) {
+	intentityConfig.PublicKeyGetter = func(tokenKeyId string) (key *rsa2.PublicKey, e error) {
 		return publicKey, nil
 	}
+
+	now := time.Now()
+	claims["exp"] = now.Add(24 * 30 * 12 * time.Hour).Unix()
+	claims["nbf"] = now.Add(-30 * time.Minute).Unix()
+	claims["iat"] = now.Unix()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tokenString, _ := token.SignedString(privateKey)
