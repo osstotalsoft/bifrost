@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"github.com/dgrijalva/jwt-go"
 	jwtRequest "github.com/dgrijalva/jwt-go/request"
 	"github.com/mitchellh/mapstructure"
@@ -65,6 +66,10 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 
 					}
 				}
+
+				ctx := context.WithValue(request.Context(), abstraction.ContextClaimsKey, token.Claims)
+				request = request.WithContext(ctx)
+
 				next.ServeHTTP(writer, request)
 			})
 		}
