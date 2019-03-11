@@ -4,6 +4,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/test"
 	"github.com/osstotalsoft/bifrost/abstraction"
+	"github.com/osstotalsoft/oidc-jwt-go"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -23,9 +24,8 @@ var testEndPoint = abstraction.Endpoint{
 }
 
 var intentityConfig = AuthorizationOptions{
-	Authority:        "http://kube-worker1:30692",
-	Audience:         "LSNG.Api",
-	WellKnownJwksUrl: "http://kube-worker1:30692/.well-known/openid-configuration/jwks",
+	Authority: "http://kube-worker1:30692",
+	Audience:  "LSNG.Api",
 }
 
 var claims = jwt.MapClaims{
@@ -56,9 +56,7 @@ var claims = jwt.MapClaims{
 func TestAuthorizationFilter(t *testing.T) {
 	privateKey := test.LoadRSAPrivateKeyFromDisk("sample_key")
 	publicKey := test.LoadRSAPublicKeyFromDisk("sample_key.pub")
-	intentityConfig.PublicKeyGetter = func(*jwt.Token) (interface{}, error) {
-		return publicKey, nil
-	}
+	intentityConfig.SecretProvider = oidc.NewKeyProvider(publicKey)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tokenString, _ := token.SignedString(privateKey)
@@ -67,23 +65,21 @@ func TestAuthorizationFilter(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "OK")
 	})
-	req := httptest.NewRequest("GET", "/whaterver", nil)
+	req := httptest.NewRequest("GET", "/whatever", nil)
 	req.Header.Add("Authorization", "Bearer "+tokenString)
 	w := httptest.NewRecorder()
 	filter(handler).ServeHTTP(w, req)
 	result := w.Result()
 
 	if result.StatusCode != http.StatusOK {
-		t.Fatalf("")
+		t.Error("request failed status: ", result.StatusCode)
 	}
 }
 
 func BenchmarkAuthorizationFilter(b *testing.B) {
 	privateKey := test.LoadRSAPrivateKeyFromDisk("sample_key")
 	publicKey := test.LoadRSAPublicKeyFromDisk("sample_key.pub")
-	intentityConfig.PublicKeyGetter = func(*jwt.Token) (interface{}, error) {
-		return publicKey, nil
-	}
+	intentityConfig.SecretProvider = oidc.NewKeyProvider(publicKey)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tokenString, _ := token.SignedString(privateKey)
@@ -92,7 +88,7 @@ func BenchmarkAuthorizationFilter(b *testing.B) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "OK")
 	})
-	req := httptest.NewRequest("GET", "/whaterver", nil)
+	req := httptest.NewRequest("GET", "/whatever", nil)
 	req.Header.Add("Authorization", "Bearer "+tokenString)
 	w := httptest.NewRecorder()
 
