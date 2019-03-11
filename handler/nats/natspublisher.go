@@ -25,19 +25,17 @@ type EndpointConfig struct {
 	Topic string `mapstructure:"topic"`
 }
 
-type NatsConnection struct {
-	internalConn *stan.Conn
-}
+type CloseConnectionFunc func()
 
 type TransformMessageFunc func(payloadBytes []byte, messageContext map[string]interface{}, requestContext context.Context) ([]byte, error)
 type BuildResponseFunc func(messageContext map[string]interface{}, requestContext context.Context) ([]byte, error)
 
-func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, buildResponseFunc BuildResponseFunc) (handler.Func, NatsConnection) {
+func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, buildResponseFunc BuildResponseFunc) (handler.Func, CloseConnectionFunc) {
 
-	natsConnection, err := connect(config.NatsUrl, config.ClientId, config.Cluster)
+	natsConnection, closeConnectionFunc, err := connect(config.NatsUrl, config.ClientId, config.Cluster)
 	if err != nil {
 		log.Error(err)
-		return nil, natsConnection
+		return nil, closeConnectionFunc
 	}
 
 	handlerFunc := func(endpoint abstraction.Endpoint) http.Handler {
@@ -66,7 +64,7 @@ func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, 
 				}
 			}
 
-			if err := (*natsConnection.internalConn).Publish(topic, messageBytes); err != nil {
+			if err := natsConnection.Publish(topic, messageBytes); err != nil {
 				log.Error(err)
 				http.Error(writer, err.Error(), http.StatusInternalServerError)
 				return
@@ -89,21 +87,18 @@ func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, 
 
 		return h
 	}
-	return handlerFunc, natsConnection
+	return handlerFunc, closeConnectionFunc
 }
 
-func connect(natsUrl, clientId, clusterId string) (NatsConnection, error) {
+func connect(natsUrl, clientId, clusterId string) (stan.Conn, CloseConnectionFunc, error) {
 	nc, err := stan.Connect(clusterId, clientId+uuid.NewV4().String(), stan.NatsURL(natsUrl))
 	if err != nil {
 		log.Fatal(err)
-		return NatsConnection{internalConn: nil}, err
+		return nc, func() {}, err
 	}
 
-	return NatsConnection{internalConn: &nc}, err
-}
-
-func (conn *NatsConnection) Close() {
-	if conn.internalConn != nil {
-		(*conn.internalConn).Close()
-	}
+	return nc, func() {
+		err := nc.Close()
+		log.Error(err)
+	}, err
 }
