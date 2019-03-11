@@ -78,7 +78,6 @@
   "filters": {
     "auth": {
       "authority": "http://kube-worker1:30692",
-      "well_known_jwks": "http://kube-worker1:30692/.well-known/openid-configuration/jwks",
       "audience": "LSNG.Api"
     }
   }
