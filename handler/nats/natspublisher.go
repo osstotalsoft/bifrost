@@ -6,6 +6,7 @@ import (
 	"github.com/nats-io/go-nats-streaming"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/handler"
+	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
@@ -92,7 +93,7 @@ func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, 
 }
 
 func connect(natsUrl, clientId, clusterId string) (NatsConnection, error) {
-	nc, err := stan.Connect(clusterId, clientId, stan.NatsURL(natsUrl))
+	nc, err := stan.Connect(clusterId, clientId+uuid.NewV4().String(), stan.NatsURL(natsUrl))
 	if err != nil {
 		log.Fatal(err)
 		return NatsConnection{internalConn: nil}, err
@@ -103,7 +104,6 @@ func connect(natsUrl, clientId, clusterId string) (NatsConnection, error) {
 
 func (conn *NatsConnection) Close() {
 	if conn.internalConn != nil {
-		//*conn.internalConn.Flush()
 		(*conn.internalConn).Close()
 	}
 }
