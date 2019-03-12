@@ -46,6 +46,8 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 				return next
 			}
 			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				log.Trace("AuthorizationFilter : start validating request")
+
 				token, err := validator(request)
 				if err != nil {
 					log.Errorln("AuthorizationFilter: Token is not valid:", err)
@@ -69,6 +71,8 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 
 				ctx := context.WithValue(request.Context(), abstraction.ContextClaimsKey, token.Claims)
 				request = request.WithContext(ctx)
+
+				log.Trace("AuthorizationFilter : end validating request")
 
 				next.ServeHTTP(writer, request)
 			})

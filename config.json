@@ -1,9 +1,9 @@
 {
-  "version": "2",
+  "version": "1",
   "name": "Bifrost api gateway",
   "port": 8000,
   "in_cluster": false,
-  "override_service_address": "http://kube-worker1:30293/",
+  "override_service_address": "https://leasing-api.appservice.online/",
   "log_level": "TRACE",
   "metrics": {
     "enabled": true,
@@ -61,6 +61,16 @@
           ]
         }
       }
+    },
+    {
+      "service_name": "lsng-api",
+      "filters": {
+        "auth": {
+          "allowed_scopes": [
+            "LSNG.Api.read_only"
+          ]
+        }
+      }
     }
   ],
   "handlers": {
@@ -68,7 +78,7 @@
       "nats": {
         "nats_url": "nats://kube-worker1:31291",
         "cluster": "faas-cluster",
-        "client_id": "GoGatewayClientId",
+        "client_id": "GoGatewayClientId2",
         "q_group": "GoGateway",
         "durable_name": "durable",
         "topic_prefix": "LSNG_LIVIU_"
@@ -77,7 +87,7 @@
   },
   "filters": {
     "auth": {
-      "authority": "http://kube-worker1:30692",
+      "authority": "https://leasing-sso.appservice.online",
       "audience": "LSNG.Api"
     }
   }

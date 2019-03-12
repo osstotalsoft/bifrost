@@ -7,6 +7,7 @@ import (
 	"github.com/osstotalsoft/bifrost/handler/nats"
 	"github.com/osstotalsoft/bifrost/handler/reverseproxy"
 	"github.com/osstotalsoft/bifrost/middleware/auth"
+	"github.com/osstotalsoft/bifrost/middleware/cors"
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery/provider/kubernetes"
 	log "github.com/sirupsen/logrus"
@@ -32,7 +33,9 @@ func main() {
 	natsHandler, natsConn := nats.NewNatsPublisher(getNatsHandlerConfig(), nats.TransformMessage, nats.BuildResponse)
 	defer natsConn.Close()
 
+	gateway.UseMiddleware(gate)(cors.CORSFilterCode, cors.CORSFilter())
 	gateway.UseMiddleware(gate)(auth.AuthorizationFilterCode, auth.AuthorizationFilter(getIdentityServerConfig()))
+
 	registerHandlerFunc(handler.EventPublisherHandlerType, natsHandler)
 	registerHandlerFunc(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy())
 

@@ -43,6 +43,7 @@ func GetDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *htt
 		targetQuery := target.RawQuery
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
+		req.Host = target.Host
 		if targetUrlPath == "" {
 			req.URL.Path = strutils.SingleJoiningSlash(target.Path, strings.TrimPrefix(req.URL.Path, routeContext.PathPrefix))
 

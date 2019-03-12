@@ -163,29 +163,30 @@ func findConfigEndpoints(endpoints []config.EndpointConfig, serviceName string) 
 }
 
 func ListenAndServe(gate *Gateway, handler http.Handler) error {
-	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port), handler)
+	name := gate.config.Name
+
+	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port), http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("X-Gateway", name)
+		handler.ServeHTTP(writer, request)
+	}))
 }
 
 func getEndpointHandler(gate *Gateway, endPoint abstraction.Endpoint) http.Handler {
 
 	handlerFunc, ok := gate.handlers[endPoint.HandlerType]
 	if !ok {
-		log.Fatalf("handler %v is not registered", endPoint.HandlerType)
+		log.Fatalf("handler %s is not registered", endPoint.HandlerType)
 		return nil
 	}
 
-	handler := handlerFunc(endPoint)
-	name := gate.config.Name
-
-	var h http.Handler
-	h = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("X-Gateway", name)
-		handler.ServeHTTP(writer, request)
-	})
+	endpointHandler := handlerFunc(endPoint)
 
 	for i := len(gate.middlewares) - 1; i >= 0; i-- {
-		h = gate.middlewares[i].middleware(endPoint)(h)
+		endpointHandler = gate.middlewares[i].middleware(endPoint)(endpointHandler)
 	}
 
-	return h
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header()..Set("X-Gateway", name)
+		handler.ServeHTTP(writer, request)
+	})
 }

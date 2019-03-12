@@ -11,7 +11,8 @@ RUN CGO_ENABLED=0 go build \
     -o /app .
 
 FROM alpine AS final
+RUN apk add --no-cache bash openssh curl
 COPY --from=builder /app /app
 
-EXPOSE 80
+EXPOSE 8000
 ENTRYPOINT ["./app"]
