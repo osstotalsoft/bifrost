@@ -16,7 +16,7 @@ func TestTransformMessage(t *testing.T) {
 		"myField": "myValue",
 	}
 	var payloadBytes, _ = json.Marshal(payload)
-	var messageContext = map[string]interface{}{}
+	var messageContext = map[string]interface{}{SourceKey: "src"}
 
 	var claimsMap = map[string]interface{}{
 		UserIdClaimKey:     "user1",
@@ -44,6 +44,15 @@ func TestTransformMessage(t *testing.T) {
 		}
 		if _, ok := response.Headers[CorrelationIdKey]; !ok {
 			t.Fatal(CorrelationIdKey + " header not present in the message")
+		}
+		if _, ok := response.Headers[MessageIdKey]; !ok {
+			t.Fatal(MessageIdKey + " header not present in the message")
+		}
+		if _, ok := response.Headers[PublishTimeKey]; !ok {
+			t.Fatal(PublishTimeKey + " header not present in the message")
+		}
+		if source, ok := response.Headers[SourceKey]; !ok || source != "src" {
+			t.Fatal(SourceKey + " header not present in the message")
 		}
 	}
 
