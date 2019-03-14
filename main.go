@@ -30,8 +30,8 @@ func main() {
 	registerHandlerFunc := gateway.RegisterHandler(gate)
 
 	//gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
-	natsHandler, natsConn := nats.NewNatsPublisher(getNatsHandlerConfig(), nats.TransformMessage, nats.BuildResponse)
-	defer natsConn.Close()
+	natsHandler, closeNatsConnection := nats.NewNatsPublisher(getNatsHandlerConfig(), nats.TransformMessage, nats.BuildResponse)
+	defer closeNatsConnection()
 
 	gateway.UseMiddleware(gate)(cors.CORSFilterCode, cors.CORSFilter("*"))
 	gateway.UseMiddleware(gate)(auth.AuthorizationFilterCode, auth.AuthorizationFilter(getIdentityServerConfig()))
