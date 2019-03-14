@@ -14,6 +14,7 @@ import (
 	"strings"
 )
 
+//AuthorizationFilterCode is the code used to register this middleware
 const AuthorizationFilterCode = "auth"
 
 //AuthorizationOptions are the options configured for all endpoints

@@ -61,10 +61,10 @@ func AddRoute(router *dynamicRouter) func(path, pathPrefix string, methods []str
 		if err != nil {
 			log.Error(err)
 			return "", err
-		} else {
-			router.routes.Store(route.UID, route)
-			log.Infof("DynamicRouter: Added new route: id: %s; pathPrefix: %s; path %s", route.UID, route.PathPrefix, route.Path)
 		}
+
+		router.routes.Store(route.UID, route)
+		log.Infof("DynamicRouter: Added new route: id: %s; pathPrefix: %s; path %s", route.UID, route.PathPrefix, route.Path)
 		return route.UID, nil
 	}
 }
