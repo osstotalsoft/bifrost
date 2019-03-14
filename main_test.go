@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -17,7 +18,6 @@ import (
 
 type mainTest struct {
 	title               string
-	service             servicediscovery.Service
 	responseFromGateway string
 	requestUrl          string
 	backendUrl          string
@@ -86,101 +86,90 @@ var (
 		},
 	}
 
+	serviceList = []*servicediscovery.Service{
+		{Resource: "users", Secured: false},
+		{Resource: "partners", Secured: false},
+		{Resource: "dealers", Secured: false},
+		{Resource: "offers1", Secured: false},
+		{Resource: "offers2", Secured: false},
+		{Resource: "offers3", Secured: false},
+		{Resource: "offers4", Secured: false},
+	}
+
 	testCases2 = []*mainTest{
 		{
-			title: "serviceWithPrefixNoPath",
-			service: servicediscovery.Service{
-				Resource:  "users",
-				Namespace: "app",
-				Address:   "http://users.app:80/",
-				Secured:   false},
+			title:               "serviceWithPrefixNoPath",
 			responseFromGateway: "responseFromGateway",
 			requestUrl:          "/users",
 			backendUrl:          "/api/v1/users",
 		},
 		{
-			title: "serviceWithDefaults",
-			service: servicediscovery.Service{
-				Resource:  "partners",
-				Namespace: "app",
-				Address:   "http://partners.app:80/",
-				Secured:   false},
+			title:               "serviceWithDefaults",
 			responseFromGateway: "responseFromGateway1",
 			requestUrl:          "/partners/details/4545",
 			backendUrl:          "/api/v1/partners/details/4545",
 		},
 		{
-			title: "serviceWithPrefix2",
-			service: servicediscovery.Service{
-				Resource:  "dealers",
-				Namespace: "app",
-				Address:   "http://dealers.app:80/",
-				Secured:   false},
+			title:               "serviceWithPrefix2",
 			responseFromGateway: "responseFromGateway2",
 			requestUrl:          "/dealers2",
 			backendUrl:          "/api/v2",
 		},
 		{
-			title: "serviceWithPrefix3",
-			service: servicediscovery.Service{
-				Resource:  "offers1",
-				Namespace: "app",
-				Address:   "http://offers1.app:80/",
-				Secured:   false},
+			title:               "serviceWithPrefix3",
 			responseFromGateway: "responseFromGateway3",
 			requestUrl:          "/offers1/4435",
 			backendUrl:          "/api/offers1/4435",
 		},
 		{
-			title: "serviceWithPrefix4",
-			service: servicediscovery.Service{
-				Resource:  "offers2",
-				Namespace: "app",
-				Address:   "http://offers2.app:80/",
-				Secured:   false},
+			title:               "serviceWithPrefix4",
 			responseFromGateway: "responseFromGateway4",
 			requestUrl:          "/offers2/add_offer/555",
 			backendUrl:          "/api/offers2/add/555",
 		},
 		{
-			title: "serviceWithPrefix5",
-			service: servicediscovery.Service{
-				Resource:  "offers3",
-				Namespace: "app",
-				Address:   "http://offers3.app:80/",
-				Secured:   false},
+			title:               "serviceWithPrefix5",
 			responseFromGateway: "responseFromGateway5",
 			requestUrl:          "/offers3",
 			backendUrl:          "/offers3",
 		},
 		{
-			title: "serviceWithPrefix6",
-			service: servicediscovery.Service{
-				Resource:  "offers4",
-				Namespace: "app",
-				Address:   "http://offers4.app:80/",
-				Secured:   false},
+			title:               "serviceWithPrefix6",
 			responseFromGateway: "responseFromGateway6",
 			requestUrl:          "/offers4/555",
 			backendUrl:          "/api/v1/offers4?id=555",
+		},
+		{
+			title:               "testEncodingUrl",
+			responseFromGateway: "testEncodingUrlResponse",
+			requestUrl:          "/dealers2/singWebApp%2F2137%2F6026a931-7c35",
+			backendUrl:          "/api/v2/singWebApp%2F2137%2F6026a931-7c35",
+		},
+		{
+			title:               "testEncodingUrl2",
+			responseFromGateway: "testEncodingUrl2Response",
+			requestUrl:          "/dealers2/singWe?search=&partnerId=",
+			backendUrl:          "/api/v2/singWe?search=&partnerId=",
 		},
 	}
 )
 
 func TestGatewayReverseProxy(t *testing.T) {
 
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.TraceLevel)
 
 	mux := http.NewServeMux()
 	backendServer := httptest.NewServer(mux)
 
-	for _, tc := range testCases2 {
-		tc.service.Address = backendServer.URL
+	for _, tc := range serviceList {
+		tc.Address = backendServer.URL
 	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, request *http.Request) {
+		url1, _ := url.PathUnescape(request.RequestURI)
+
 		for _, tc := range testCases2 {
-			if tc.backendUrl == request.RequestURI {
+			if tc.backendUrl == url1 {
 				_, _ = w.Write([]byte(tc.responseFromGateway))
 				return
 			}
@@ -195,8 +184,8 @@ func TestGatewayReverseProxy(t *testing.T) {
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 
-	for _, tc := range testCases2 {
-		gateway.AddService(gate)(r.AddRoute(dynRouter))(tc.service)
+	for _, service := range serviceList {
+		gateway.AddService(gate)(r.AddRoute(dynRouter))(*service)
 	}
 
 	t.Run("group", func(t *testing.T) {
@@ -217,7 +206,7 @@ func TestGatewayReverseProxy(t *testing.T) {
 				}
 
 				if string(body) != tc.responseFromGateway {
-					t.Fatalf("expected %v, but got %v", tc.responseFromGateway, string(body))
+					t.Errorf("test %s failed : expected %v, but got %v", tc.title, tc.responseFromGateway, string(body))
 				}
 			})
 		}

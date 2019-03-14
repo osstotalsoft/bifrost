@@ -92,6 +92,9 @@ func BenchmarkAuthorizationFilter(b *testing.B) {
 	req.Header.Add("Authorization", "Bearer "+tokenString)
 	w := httptest.NewRecorder()
 
+	b.ReportAllocs()
+	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		filter(handler).ServeHTTP(w, req)
 		w.Result()

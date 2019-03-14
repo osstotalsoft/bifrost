@@ -27,8 +27,17 @@ func NewReverseProxy() handler.Func {
 		//https://github.com/golang/go/issues/16012
 		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
-		return &httputil.ReverseProxy{Director: GetDirector(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix)}
+		return &httputil.ReverseProxy{
+			Director:       GetDirector(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix),
+			ModifyResponse: ModifyResponse,
+		}
 	}
+}
+
+func ModifyResponse(response *http.Response) error {
+	//hack when upstream service has cors enabled; cors will be handled by the gateway
+	response.Header.Del("Access-Control-Allow-Origin")
+	return nil
 }
 
 func GetDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *http.Request) {
@@ -45,7 +54,8 @@ func GetDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *htt
 		req.URL.Host = target.Host
 		req.Host = target.Host
 		if targetUrlPath == "" {
-			req.URL.Path = strutils.SingleJoiningSlash(target.Path, strings.TrimPrefix(req.URL.Path, routeContext.PathPrefix))
+			a := req.URL.EscapedPath()
+			req.URL.Path = strutils.SingleJoiningSlash(target.Path, strings.TrimPrefix(a, routeContext.PathPrefix))
 
 			if targetQuery == "" || req.URL.RawQuery == "" {
 				req.URL.RawQuery = targetQuery + req.URL.RawQuery

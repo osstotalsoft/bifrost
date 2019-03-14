@@ -33,7 +33,7 @@ func main() {
 	natsHandler, natsConn := nats.NewNatsPublisher(getNatsHandlerConfig(), nats.TransformMessage, nats.BuildResponse)
 	defer natsConn.Close()
 
-	gateway.UseMiddleware(gate)(cors.CORSFilterCode, cors.CORSFilter())
+	gateway.UseMiddleware(gate)(cors.CORSFilterCode, cors.CORSFilter("*"))
 	gateway.UseMiddleware(gate)(auth.AuthorizationFilterCode, auth.AuthorizationFilter(getIdentityServerConfig()))
 
 	registerHandlerFunc(handler.EventPublisherHandlerType, natsHandler)

@@ -11,6 +11,7 @@ import (
 	"github.com/osstotalsoft/oidc-jwt-go/discovery"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	"strings"
 )
 
 const AuthorizationFilterCode = "auth"
@@ -51,7 +52,7 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 				token, err := validator(request)
 				if err != nil {
 					log.Errorln("AuthorizationFilter: Token is not valid:", err)
-					Unauthorized(writer)
+					UnauthorizedWithHeader(writer, err.Error())
 					return
 				}
 
@@ -59,13 +60,17 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 					if len(cfg.AllowedScopes) > 0 {
 						hasScope := checkScopes(cfg.AllowedScopes, token.Claims.(jwt.MapClaims)["scope"].([]interface{}))
 						if !hasScope {
-							Forbidden(writer)
+							InsufficientScope(writer, "insufficient scope", cfg.AllowedScopes)
 							return
 						}
 					}
 
 					if len(cfg.ClaimsRequirement) > 0 {
-
+						hasScope := checkClaimsRequirements(cfg.ClaimsRequirement, token.Claims.(jwt.MapClaims))
+						if !hasScope {
+							Forbidden(writer, "invalid claim")
+							return
+						}
 					}
 				}
 
@@ -80,14 +85,19 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 	}
 }
 
-func Unauthorized(writer http.ResponseWriter) {
-	writer.WriteHeader(http.StatusUnauthorized)
-	_, _ = writer.Write([]byte("Unauthorized"))
+func UnauthorizedWithHeader(writer http.ResponseWriter, err string) {
+	writer.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\", error_description=\""+err+"\"")
+	http.Error(writer, "", http.StatusUnauthorized)
 }
 
-func Forbidden(writer http.ResponseWriter) {
-	writer.WriteHeader(http.StatusForbidden)
-	_, _ = writer.Write([]byte("Insufficient scopes."))
+func InsufficientScope(writer http.ResponseWriter, err string, scopes []string) {
+	val := "Bearer error=\"insufficient_scope\", error_description=\"" + err + "\" scope=\"" + strings.Join(scopes, ",") + "\""
+	writer.Header().Set("WWW-Authenticate", val)
+	Forbidden(writer, "")
+}
+
+func Forbidden(writer http.ResponseWriter, err string) {
+	http.Error(writer, err, http.StatusForbidden)
 }
 
 func checkScopes(requiredScopes []string, userScopes []interface{}) bool {
@@ -99,4 +109,19 @@ func checkScopes(requiredScopes []string, userScopes []interface{}) bool {
 		}
 	}
 	return false
+}
+
+func checkClaimsRequirements(requiredClaims map[string]string, claims jwt.MapClaims) bool {
+	for key, val := range requiredClaims {
+		v, ok := claims[key]
+		if ok {
+			if v != val {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+
+	return true
 }

@@ -185,8 +185,5 @@ func getEndpointHandler(gate *Gateway, endPoint abstraction.Endpoint) http.Handl
 		endpointHandler = gate.middlewares[i].middleware(endPoint)(endpointHandler)
 	}
 
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header()..Set("X-Gateway", name)
-		handler.ServeHTTP(writer, request)
-	})
+	return endpointHandler
 }
