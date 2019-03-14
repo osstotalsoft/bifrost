@@ -16,17 +16,21 @@ import (
 
 const AuthorizationFilterCode = "auth"
 
+//AuthorizationOptions are the options configured for all endpoints
 type AuthorizationOptions struct {
 	Authority      string `mapstructure:"authority"`
 	Audience       string `mapstructure:"audience"`
 	SecretProvider oidc.SecretProvider
 }
 
+//AuthorizationEndpointOptions are the options configured for each endpoint
 type AuthorizationEndpointOptions struct {
 	ClaimsRequirement map[string]string `mapstructure:"claims_requirement"`
 	AllowedScopes     []string          `mapstructure:"allowed_scopes"`
 }
 
+//AuthorizationFilter is a middleware that handles authorization using
+//an OpendID Connect server
 func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 	return func(endpoint abstraction.Endpoint) func(http.Handler) http.Handler {
 		cfg := AuthorizationEndpointOptions{}
@@ -85,17 +89,20 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 	}
 }
 
+//UnauthorizedWithHeader adds to the response a WWW-Authenticate header and returns a StatusUnauthorized error
 func UnauthorizedWithHeader(writer http.ResponseWriter, err string) {
 	writer.Header().Set("WWW-Authenticate", "Bearer error=\"invalid_token\", error_description=\""+err+"\"")
 	http.Error(writer, "", http.StatusUnauthorized)
 }
 
+//InsufficientScope adds to the response a WWW-Authenticate header and returns a StatusForbidden error
 func InsufficientScope(writer http.ResponseWriter, err string, scopes []string) {
 	val := "Bearer error=\"insufficient_scope\", error_description=\"" + err + "\" scope=\"" + strings.Join(scopes, ",") + "\""
 	writer.Header().Set("WWW-Authenticate", val)
 	Forbidden(writer, "")
 }
 
+//Forbidden returns a StatusForbidden error
 func Forbidden(writer http.ResponseWriter, err string) {
 	http.Error(writer, err, http.StatusForbidden)
 }

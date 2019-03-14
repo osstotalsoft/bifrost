@@ -14,8 +14,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//DefaultHandlerType is the default handler used when a request matches a route
 const DefaultHandlerType = handler.ReverseProxyHandlerType
 
+//Gateway is a http.Handler able to route request to different handlers
 type Gateway struct {
 	config                *config.Config
 	endPointToRouteMapper sync.Map
@@ -28,6 +30,7 @@ type middlewareTuple struct {
 	middleware middleware.Func
 }
 
+//NewGateway is the Gateway constructor
 func NewGateway(config *config.Config) *Gateway {
 	if config == nil {
 		log.Panicf("Gateway: Must provide a configuration file")
@@ -38,10 +41,16 @@ func NewGateway(config *config.Config) *Gateway {
 	}
 }
 
+//AddServiceFunc is a type for adding services using the same signature
 type AddServiceFunc func(addRouteFunc AddRouteFunc) func(service servicediscovery.Service)
+
+//AddRouteFunc is a type for adding routes using the same signature
 type AddRouteFunc func(path string, pathPrefix string, methods []string, handler http.Handler) (string, error)
+
+//UpdateEndpointFunc is a type for updating endpoints using the same signature
 type UpdateEndpointFunc func(addRouteFunc AddRouteFunc, removeRouteFunc func(routeId string)) func(oldService servicediscovery.Service, newService servicediscovery.Service)
 
+//AddService adds a service to the gateway
 func AddService(gate *Gateway) AddServiceFunc {
 	return func(addRouteFunc AddRouteFunc) func(service servicediscovery.Service) {
 		return func(service servicediscovery.Service) {
@@ -50,6 +59,7 @@ func AddService(gate *Gateway) AddServiceFunc {
 	}
 }
 
+//UpdateService updates a service of the gateway
 func UpdateService(gate *Gateway) UpdateEndpointFunc {
 	return func(addRouteFunc AddRouteFunc, removeRouteFunc func(routeId string)) func(oldService servicediscovery.Service, newService servicediscovery.Service) {
 		return func(oldService servicediscovery.Service, newService servicediscovery.Service) {
@@ -61,23 +71,26 @@ func UpdateService(gate *Gateway) UpdateEndpointFunc {
 	}
 }
 
+//RemoveService removes a service from the gateway
+func RemoveService(gate *Gateway) func(removeRouteFunc func(routeId string)) func(service servicediscovery.Service) {
+	return func(removeRouteFunc func(routeId string)) func(service servicediscovery.Service) {
+		return func(service servicediscovery.Service) {
+			removeRoutes(gate, service, removeRouteFunc)
+		}
+	}
+}
+
+//UseMiddleware registers a new middleware
 func UseMiddleware(gate *Gateway) func(key string, mwf middleware.Func) {
 	return func(key string, mwf middleware.Func) {
 		gate.middlewares = append(gate.middlewares, middlewareTuple{key, mwf})
 	}
 }
 
+//RegisterHandler registers a new handler
 func RegisterHandler(gate *Gateway) func(key string, handlerFunc handler.Func) {
 	return func(key string, handlerFunc handler.Func) {
 		gate.handlers[key] = handlerFunc
-	}
-}
-
-func RemoveService(gate *Gateway) func(removeRouteFunc func(routeId string)) func(service servicediscovery.Service) {
-	return func(removeRouteFunc func(routeId string)) func(service servicediscovery.Service) {
-		return func(service servicediscovery.Service) {
-			removeRoutes(gate, service, removeRouteFunc)
-		}
 	}
 }
 
@@ -162,6 +175,7 @@ func findConfigEndpoints(endpoints []config.EndpointConfig, serviceName string) 
 	return result
 }
 
+//ListenAndServe start the gateway server
 func ListenAndServe(gate *Gateway, handler http.Handler) error {
 	name := gate.config.Name
 

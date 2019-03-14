@@ -15,6 +15,9 @@ type dynamicRouter struct {
 	routeMatcher RouteMatcherFunc
 }
 
+//NewDynamicRouter creates a new dynamic router
+//Its dynamic because it can add/remove routes at runtime
+//this router does not do any route matching, it relies on third parties for that
 func NewDynamicRouter(routeMatcher RouteMatcherFunc) *dynamicRouter {
 	return &dynamicRouter{
 		new(sync.Map),
@@ -22,6 +25,7 @@ func NewDynamicRouter(routeMatcher RouteMatcherFunc) *dynamicRouter {
 	}
 }
 
+//GetHandler returns the router http.Handler
 func GetHandler(router *dynamicRouter) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		route, routeMatch := MatchRoute(router.routes, request)
@@ -41,6 +45,7 @@ func GetHandler(router *dynamicRouter) http.Handler {
 	})
 }
 
+//AddRoute adds a new route
 func AddRoute(router *dynamicRouter) func(path, pathPrefix string, methods []string, handler http.Handler) (string, error) {
 	return func(path, pathPrefix string, methods []string, handler http.Handler) (string, error) {
 		route := Route{
@@ -80,6 +85,7 @@ func validateRoute(router *dynamicRouter, route Route) error {
 	return err
 }
 
+//RemoveRoute removes a route
 func RemoveRoute(router *dynamicRouter) func(routeId string) {
 	return func(routeId string) {
 		route, ok := router.routes.Load(routeId)

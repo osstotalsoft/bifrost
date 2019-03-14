@@ -2,8 +2,10 @@ package router
 
 import "time"
 
+//ContextRouteKey is a key for storing route information into the request context
 const ContextRouteKey = "ContextRouteKey"
 
+//RouteContext is the object that gets stored into the request context
 type RouteContext struct {
 	Path       string
 	PathPrefix string

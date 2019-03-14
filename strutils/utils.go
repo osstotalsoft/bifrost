@@ -2,6 +2,7 @@ package strutils
 
 import "strings"
 
+//SingleJoiningSlash joins two strings with slashes resulting a single string with one slash
 func SingleJoiningSlash(a, b string) string {
 	aslash := strings.HasSuffix(a, "/")
 	bslash := strings.HasPrefix(b, "/")
@@ -14,6 +15,7 @@ func SingleJoiningSlash(a, b string) string {
 	return a + b
 }
 
+//Intersection intersects two string arrays
 func Intersection(s1, s2 []string) (inter []string) {
 	hash := make(map[string]bool)
 	for _, e := range s1 {

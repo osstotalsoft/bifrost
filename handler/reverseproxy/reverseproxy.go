@@ -12,35 +12,26 @@ import (
 	"strings"
 )
 
-type HttpHandlerConfig struct {
-	UpstreamPathPrefix string `mapstructure:"upstream_path_prefix"`
-}
-
-type HttpHandlerEndpointConfig struct {
-	UpstreamPath       string `mapstructure:"upstream_path"`
-	UpstreamPathPrefix string `mapstructure:"upstream_path_prefix"`
-}
-
+//NewReverseProxy create a new reverproxy http.Handler for each endpoint
 func NewReverseProxy() handler.Func {
-
 	return func(endPoint abstraction.Endpoint) http.Handler {
 		//https://github.com/golang/go/issues/16012
 		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
 		return &httputil.ReverseProxy{
-			Director:       GetDirector(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix),
-			ModifyResponse: ModifyResponse,
+			Director:       getDirector(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix),
+			ModifyResponse: modifyResponse,
 		}
 	}
 }
 
-func ModifyResponse(response *http.Response) error {
+func modifyResponse(response *http.Response) error {
 	//hack when upstream service has cors enabled; cors will be handled by the gateway
 	response.Header.Del("Access-Control-Allow-Origin")
 	return nil
 }
 
-func GetDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *http.Request) {
+func getDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *http.Request) {
 	return func(req *http.Request) {
 		routeContext := req.Context().Value(router.ContextRouteKey).(router.RouteContext)
 		initial := req.URL.String()

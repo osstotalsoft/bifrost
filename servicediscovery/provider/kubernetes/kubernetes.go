@@ -17,6 +17,7 @@ import (
 	"time"
 )
 
+//Provider is a service discovery provider implementation, using Kubernetes
 type Provider struct {
 	onAddServiceHandlers    []servicediscovery.ServiceFunc
 	onRemoveServiceHandlers []servicediscovery.ServiceFunc
@@ -26,9 +27,10 @@ type Provider struct {
 	overrideServiceAddress  string
 }
 
-const ResourceLabelName = "api-gateway/resource"
-const SecuredLabelName = "api-gateway/secured"
+const resourceLabelName = "api-gateway/resource"
+const securedLabelName = "api-gateway/secured"
 
+//NewKubernetesServiceDiscoveryProvider creates a new kube provider
 func NewKubernetesServiceDiscoveryProvider(inCluster bool, overrideServiceAddress string) *Provider {
 
 	var config *rest.Config
@@ -70,6 +72,7 @@ func outOfClusterConfig() (*rest.Config, error) {
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
 
+//Start starts the discovery process
 func Start(provider *Provider) *Provider {
 
 	watchlist := newServicesListWatch(provider.clientset.CoreV1().RESTClient())
@@ -115,7 +118,7 @@ func addFunc(provider *Provider) func(obj interface{}) {
 }
 
 func mapToService(srv *corev1.Service, overrideServiceAddress string) servicediscovery.Service {
-	secured, _ := strconv.ParseBool(srv.Labels[SecuredLabelName])
+	secured, _ := strconv.ParseBool(srv.Labels[securedLabelName])
 
 	address := "http://" + srv.Name + "." + srv.Namespace
 	if overrideServiceAddress != "" {
@@ -126,7 +129,7 @@ func mapToService(srv *corev1.Service, overrideServiceAddress string) servicedis
 		Version:   srv.ResourceVersion,
 		UID:       string(srv.UID),
 		Name:      srv.Name,
-		Resource:  srv.Labels[ResourceLabelName], // "api1",
+		Resource:  srv.Labels[resourceLabelName], // "api1",
 		Secured:   secured,
 		Namespace: srv.Namespace, // "gateway",
 	}
@@ -137,7 +140,7 @@ func newServicesListWatch(c cache.Getter) *cache.ListWatch {
 	resource := "services"
 
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
-		options.LabelSelector = ResourceLabelName
+		options.LabelSelector = resourceLabelName
 		return c.Get().
 			//Namespace(namespace).
 			Resource(resource).
@@ -147,7 +150,7 @@ func newServicesListWatch(c cache.Getter) *cache.ListWatch {
 	}
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		options.Watch = true
-		options.LabelSelector = ResourceLabelName
+		options.LabelSelector = resourceLabelName
 		return c.Get().
 			//Namespace(namespace).
 			Resource(resource).
@@ -169,11 +172,13 @@ func callUpdateSubscribers(handlers []func(old servicediscovery.Service, new ser
 	}
 }
 
+//Stop stops the discovery process
 func Stop(provider *Provider) *Provider {
 	close(provider.stop)
 	return provider
 }
 
+//SubscribeOnAddService registers some handlers to be called when a new service is found
 func SubscribeOnAddService(f servicediscovery.ServiceFunc) func(provider *Provider) *Provider {
 	return func(provider *Provider) *Provider {
 		provider.onAddServiceHandlers = append(provider.onAddServiceHandlers, f)
@@ -181,6 +186,7 @@ func SubscribeOnAddService(f servicediscovery.ServiceFunc) func(provider *Provid
 	}
 }
 
+//SubscribeOnRemoveService registers some handlers to be called when a service is removed
 func SubscribeOnRemoveService(f servicediscovery.ServiceFunc) func(provider *Provider) *Provider {
 	return func(provider *Provider) *Provider {
 		provider.onRemoveServiceHandlers = append(provider.onRemoveServiceHandlers, f)
@@ -188,6 +194,7 @@ func SubscribeOnRemoveService(f servicediscovery.ServiceFunc) func(provider *Pro
 	}
 }
 
+//SubscribeOnUpdateService registers some handlers to be called when a service gets updated
 func SubscribeOnUpdateService(f func(old servicediscovery.Service, new servicediscovery.Service)) func(provider *Provider) *Provider {
 	return func(provider *Provider) *Provider {
 		provider.onUpdateServiceHandlers = append(provider.onUpdateServiceHandlers, f)
@@ -195,6 +202,7 @@ func SubscribeOnUpdateService(f func(old servicediscovery.Service, new servicedi
 	}
 }
 
+//Compose composes provider functions
 func Compose(funcs ...func(p *Provider) *Provider) func(p *Provider) *Provider {
 	return func(p *Provider) *Provider {
 		for _, f := range funcs {

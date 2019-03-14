@@ -5,6 +5,7 @@ import (
 	"net/http"
 )
 
+//GorillaMuxRouteMatcher is used for route matching
 func GorillaMuxRouteMatcher(route Route) func(request *http.Request) RouteMatch {
 	rr := new(mux.Route)
 

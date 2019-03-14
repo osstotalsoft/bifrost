@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-// The global NATS configuration
+//Config is the global NATS configuration
 type Config struct {
 	NatsUrl     string `mapstructure:"nats_url"`
 	Cluster     string `mapstructure:"cluster"`
@@ -23,23 +23,23 @@ type Config struct {
 	Source      string `mapstructure:"source"`
 }
 
-// The NATS specific configuration of the endpoint
+//EndpointConfig is the NATS specific configuration of the endpoint
 type EndpointConfig struct {
 	Topic string `mapstructure:"topic"`
 }
 
-// The function to be called to close the NATS connection
+//CloseConnectionFunc is to be called to close the NATS connection
 type CloseConnectionFunc func()
 
-// The function transforms a message received in the HTTP request to a format required by the NBB infrastructure.
-// It envelopes the message adding the required metadata such as UserId, CorrelationId, MessageId, PublishTime, Source, etc.
+//TransformMessageFunc transforms a message received in the HTTP request to a format required by the NBB infrastructure.
+//It envelopes the message adding the required metadata such as UserId, CorrelationId, MessageId, PublishTime, Source, etc.
 type TransformMessageFunc func(payloadBytes []byte, messageContext map[string]interface{}, requestContext context.Context) ([]byte, error)
 
-// The function builds the response that is returned by the Gateway after publishing a message
+//BuildResponseFunc builds the response that is returned by the Gateway after publishing a message
 // The returned data will be written to the HTTP response
 type BuildResponseFunc func(messageContext map[string]interface{}, requestContext context.Context) ([]byte, error)
 
-// Creates an instance of the NATS publisher handler.
+//NewNatsPublisher creates an instance of the NATS publisher handler.
 // It transforms the received HTTP request using the transformMessageFunc into a message, publishes the message to NATS and
 // returns the http response built using buildResponseFunc
 func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, buildResponseFunc BuildResponseFunc) (handler.Func, CloseConnectionFunc) {
@@ -103,7 +103,7 @@ func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, 
 	return handlerFunc, closeConnectionFunc
 }
 
-// Opens a streaming NATS connection
+//connect opens a streaming NATS connection
 func connect(natsUrl, clientId, clusterId string) (stan.Conn, CloseConnectionFunc, error) {
 	nc, err := stan.Connect(clusterId, clientId+uuid.NewV4().String(), stan.NatsURL(natsUrl))
 	if err != nil {

@@ -1,11 +1,6 @@
 package config
 
-import (
-	"encoding/json"
-	log "github.com/sirupsen/logrus"
-	"os"
-)
-
+//Config is an object loaded from config.json
 type Config struct {
 	Endpoints              []EndpointConfig `mapstructure:"endpoints"`
 	Port                   int              `mapstructure:"port"`
@@ -18,6 +13,7 @@ type Config struct {
 	OverrideServiceAddress string           `mapstructure:"override_service_address"`
 }
 
+//EndpointConfig is a configuration detail from config.json
 type EndpointConfig struct {
 	UpstreamPath         string                 `mapstructure:"upstream_path"`
 	UpstreamPathPrefix   string                 `mapstructure:"upstream_path_prefix"`
@@ -28,22 +24,4 @@ type EndpointConfig struct {
 	HandlerType          string                 `mapstructure:"handler_type"`
 	HandlerConfig        map[string]interface{} `mapstructure:"handler_config"`
 	Filters              map[string]interface{} `mapstructure:"filters"`
-}
-
-func LoadConfig() *Config {
-	var config = new(Config)
-	configFile, err := os.Open("config.json")
-	defer configFile.Close()
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-	jsonParser := json.NewDecoder(configFile)
-	err = jsonParser.Decode(config)
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-
-	cfStrt, _ := json.Marshal(config)
-	log.Infof("Using configuration : %s", string(cfStrt))
-	return config
 }

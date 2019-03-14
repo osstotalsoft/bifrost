@@ -6,8 +6,10 @@ import (
 	"time"
 )
 
+//RouteMatcherFunc type signature that any route matcher have to implement
 type RouteMatcherFunc func(route Route) func(request *http.Request) RouteMatch
 
+//Route stores the information about a certain route
 type Route struct {
 	UID        string
 	Path       string
@@ -18,6 +20,7 @@ type Route struct {
 	handler    http.Handler
 }
 
+//RouteMatch is the result of a route matching
 type RouteMatch struct {
 	Matched bool
 	Vars    map[string]string
@@ -27,6 +30,7 @@ func (r Route) String() string {
 	return r.PathPrefix + r.Path
 }
 
+//MatchRoute checks all the route if they match the incoming request
 func MatchRoute(routes *sync.Map, request *http.Request) (Route, RouteMatch) {
 
 	var resRM RouteMatch

@@ -5,11 +5,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//TestProvider is a service discovery provider used for testing
 type TestProvider struct {
 	onRegisterHandlers   []servicediscovery.ServiceFunc
 	onUnRegisterHandlers []servicediscovery.ServiceFunc
 }
 
+//NewTestProvider create a test provider
 func NewTestProvider() *TestProvider {
 
 	return &TestProvider{

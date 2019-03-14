@@ -7,8 +7,11 @@ import (
 	"net/http"
 )
 
+//CORSFilterCode is the code used to register this middleware
 const CORSFilterCode = "cors"
 
+// CORSFilter provides Cross-Origin Resource Sharing middleware.
+// using gorilla cors handlers
 func CORSFilter(allowedOrigins ...string) middleware.Func {
 	return func(endpoint abstraction.Endpoint) func(http.Handler) http.Handler {
 		originis := handlers.AllowedOrigins(allowedOrigins)

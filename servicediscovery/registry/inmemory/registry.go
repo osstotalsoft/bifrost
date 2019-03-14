@@ -1,4 +1,4 @@
-package in_memory_registry
+package inmemory
 
 import (
 	"github.com/osstotalsoft/bifrost/servicediscovery"

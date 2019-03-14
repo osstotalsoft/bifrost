@@ -1,5 +1,6 @@
 package servicediscovery
 
+//Service is the main component of a service discovery
 type Service struct {
 	UID       string
 	Name      string
@@ -10,4 +11,5 @@ type Service struct {
 	Namespace string
 }
 
+//ServiceFunc is an alias
 type ServiceFunc func(service Service)
