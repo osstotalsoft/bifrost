@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"github.com/opentracing/opentracing-go"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/handler"
@@ -181,7 +182,15 @@ func ListenAndServe(gate *Gateway, handler http.Handler) error {
 
 	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port), http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("X-Gateway", name)
-		handler.ServeHTTP(writer, request)
+		tracer := opentracing.GlobalTracer()
+		span := tracer.StartSpan(request.Method + " " + request.RequestURI)
+		ctx := opentracing.ContextWithSpan(request.Context(), span)
+		//span.SetTag("tag1", "tag1value")
+		//span.LogFields(otlog.String("event", "soft error"))
+		w := &statusResponseWriter{allResponseWriterInterfaces: writer.(allResponseWriterInterfaces)}
+		handler.ServeHTTP(w, request.WithContext(ctx))
+		span.SetTag("http.status_code", w.status)
+		span.Finish()
 	}))
 }
 

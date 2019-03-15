@@ -1,6 +1,7 @@
 package reverseproxy
 
 import (
+	"github.com/opentracing/opentracing-go"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/handler"
 	"github.com/osstotalsoft/bifrost/router"
@@ -18,10 +19,16 @@ func NewReverseProxy() handler.Func {
 		//https://github.com/golang/go/issues/16012
 		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
-		return &httputil.ReverseProxy{
+		revP := &httputil.ReverseProxy{
 			Director:       getDirector(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix),
 			ModifyResponse: modifyResponse,
 		}
+
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			span, _ := opentracing.StartSpanFromContext(r.Context(), "ReverseProxy")
+			revP.ServeHTTP(w, r)
+			span.Finish()
+		})
 	}
 }
 

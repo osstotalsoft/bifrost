@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/opentracing/opentracing-go"
 	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/gateway"
 	"github.com/osstotalsoft/bifrost/handler"
@@ -12,16 +13,26 @@ import (
 	"github.com/osstotalsoft/bifrost/servicediscovery/provider/kubernetes"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/uber/jaeger-client-go"
+	jaegercfg "github.com/uber/jaeger-client-go/config"
+	jaegerlog "github.com/uber/jaeger-client-go/log"
+	"github.com/uber/jaeger-lib/metrics"
+	"io"
 	"net/http"
 )
 
 func main() {
+	//var signalsChannel = make(chan os.Signal, 1)
+	//signal.Notify(signalsChannel, os.Interrupt, syscall.SIGTERM)
 
 	//https://github.com/golang/go/issues/16012
 	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
 	cfg := getConfig()
 	setLogging(cfg.LogLevel)
+
+	closer := setupJaeger()
+	defer closer.Close()
 
 	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress)
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
@@ -54,6 +65,10 @@ func main() {
 	if err != nil {
 		log.Print(err)
 	}
+
+	//log.Info("Shutting down")
+	//kubernetes.Stop(provider)
+	//closeNatsConnection()
 }
 
 func setLogging(logLevel string) {
@@ -104,4 +119,32 @@ func getIdentityServerConfig() auth.AuthorizationOptions {
 	}
 
 	return *cfg
+}
+
+func setupJaeger() io.Closer {
+
+	cfg := jaegercfg.Configuration{
+		ServiceName: "Bifrost API Gateway",
+		Sampler: &jaegercfg.SamplerConfig{
+			Type:  jaeger.SamplerTypeConst,
+			Param: 1,
+		},
+		Reporter: &jaegercfg.ReporterConfig{
+			LogSpans:           true,
+			LocalAgentHostPort: "kube-worker1:31457",
+		},
+	}
+
+	jLogger := jaegerlog.StdLogger
+	jMetricsFactory := metrics.NullFactory
+
+	// Initialize tracer with a logger and a metrics factory
+	tracer, closer, _ := cfg.NewTracer(
+		jaegercfg.Logger(jLogger),
+		jaegercfg.Metrics(jMetricsFactory),
+	)
+	// Set the singleton opentracing.Tracer with the Jaeger tracer.
+	opentracing.SetGlobalTracer(tracer)
+
+	return closer
 }

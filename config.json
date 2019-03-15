@@ -3,7 +3,7 @@
   "name": "Bifrost api gateway",
   "port": 8000,
   "in_cluster": false,
-  "override_service_address": "https://leasing-api.appservice.online/",
+  "override_service_address": "http://kube-worker1:32344/",
   "log_level": "TRACE",
   "metrics": {
     "enabled": true,
@@ -52,12 +52,11 @@
     },
     {
       "service_name": "downstream-api-1",
-      "upstream_path_prefix": "/downstream-api-1",
+      "upstream_path_prefix": "/api",
       "filters": {
         "auth": {
           "allowed_scopes": [
-            "LSNG.Api.read_only",
-            "scope2"
+            "LSNG.Api.read_only"
           ]
         }
       }
