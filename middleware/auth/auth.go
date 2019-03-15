@@ -5,8 +5,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	jwtRequest "github.com/dgrijalva/jwt-go/request"
 	"github.com/mitchellh/mapstructure"
-	"github.com/opentracing/opentracing-go"
-	otlgo "github.com/opentracing/opentracing-go/log"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/middleware"
 	"github.com/osstotalsoft/oidc-jwt-go"
@@ -54,15 +52,11 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 				return next
 			}
 			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-
-				span, _ := opentracing.StartSpanFromContext(request.Context(), "AuthorizationFilter")
-
 				token, err := validator(request)
 				if err != nil {
 					log.Errorln("AuthorizationFilter: Token is not valid:", err)
-					span.LogFields(otlgo.Error(err))
+					//span.LogFields(otlgo.Error(err))
 					UnauthorizedWithHeader(writer, err.Error())
-					span.Finish()
 					return
 				}
 
@@ -71,8 +65,7 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 						hasScope := checkScopes(cfg.AllowedScopes, token.Claims.(jwt.MapClaims)["scope"].([]interface{}))
 						if !hasScope {
 							InsufficientScope(writer, "insufficient scope", cfg.AllowedScopes)
-							span.LogFields(otlgo.String("error", "insufficient scope"))
-							span.Finish()
+							//span.LogFields(otlgo.String("error", "insufficient scope"))
 							return
 						}
 					}
@@ -81,8 +74,7 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 						hasScope := checkClaimsRequirements(cfg.ClaimsRequirement, token.Claims.(jwt.MapClaims))
 						if !hasScope {
 							Forbidden(writer, "invalid claim")
-							span.LogFields(otlgo.String("error", "invalid claim"))
-							span.Finish()
+							//span.LogFields(otlgo.String("error", "invalid claim"))
 							return
 						}
 					}
@@ -90,9 +82,6 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 
 				ctx := context.WithValue(request.Context(), abstraction.ContextClaimsKey, token.Claims)
 				request = request.WithContext(ctx)
-
-				span.Finish()
-
 				next.ServeHTTP(writer, request)
 			})
 		}

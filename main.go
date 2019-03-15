@@ -11,6 +11,7 @@ import (
 	"github.com/osstotalsoft/bifrost/middleware/cors"
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery/provider/kubernetes"
+	"github.com/osstotalsoft/bifrost/tracing"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/uber/jaeger-client-go"
@@ -31,7 +32,7 @@ func main() {
 	cfg := getConfig()
 	setLogging(cfg.LogLevel)
 
-	closer := setupJaeger()
+	_, closer := setupJaeger()
 	defer closer.Close()
 
 	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress)
@@ -44,8 +45,9 @@ func main() {
 	natsHandler, closeNatsConnection := nats.NewNatsPublisher(getNatsHandlerConfig(), nats.TransformMessage, nats.BuildResponse)
 	defer closeNatsConnection()
 
-	gateway.UseMiddleware(gate)(cors.CORSFilterCode, cors.CORSFilter("*"))
-	gateway.UseMiddleware(gate)(auth.AuthorizationFilterCode, auth.AuthorizationFilter(getIdentityServerConfig()))
+	gateMiddlewareFunc := gateway.UseMiddleware(gate)
+	gateMiddlewareFunc(cors.CORSFilterCode, tracing.WrapMiddleware(cors.CORSFilter("*"), "CORSFilter"))
+	gateMiddlewareFunc(auth.AuthorizationFilterCode, tracing.WrapMiddleware(auth.AuthorizationFilter(getIdentityServerConfig()), "AuthorizationFilter"))
 
 	registerHandlerFunc(handler.EventPublisherHandlerType, natsHandler)
 	registerHandlerFunc(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy())
@@ -61,7 +63,7 @@ func main() {
 		kubernetes.Start,
 	)(provider)
 
-	err := gateway.ListenAndServe(gate, r.GetHandler(dynRouter))
+	err := gateway.ListenAndServe(gate, tracing.Wrap(r.GetHandler(dynRouter)))
 	if err != nil {
 		log.Print(err)
 	}
@@ -121,7 +123,7 @@ func getIdentityServerConfig() auth.AuthorizationOptions {
 	return *cfg
 }
 
-func setupJaeger() io.Closer {
+func setupJaeger() (opentracing.Tracer, io.Closer) {
 
 	cfg := jaegercfg.Configuration{
 		ServiceName: "Bifrost API Gateway",
@@ -146,5 +148,5 @@ func setupJaeger() io.Closer {
 	// Set the singleton opentracing.Tracer with the Jaeger tracer.
 	opentracing.SetGlobalTracer(tracer)
 
-	return closer
+	return tracer, closer
 }

@@ -33,6 +33,7 @@ require (
 	github.com/nats-io/nats-streaming-server v0.12.0 // indirect
 	github.com/nats-io/nkeys v0.0.2 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
+	github.com/opentracing-contrib/go-stdlib v0.0.0-20190205184154-464eb271c715
 	github.com/opentracing/opentracing-go v1.0.2
 	github.com/osstotalsoft/oidc-jwt-go v0.0.0-20190311080259-5c185ec6f15e
 	github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c // indirect
