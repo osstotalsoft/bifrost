@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 //DefaultHandlerType is the default handler used when a request matches a route
@@ -33,7 +33,7 @@ type middlewareTuple struct {
 //NewGateway is the Gateway constructor
 func NewGateway(config *config.Config) *Gateway {
 	if config == nil {
-		log.Panicf("Gateway: Must provide a configuration file")
+		log.Panic().Msg("Gateway: Must provide a configuration file")
 	}
 	return &Gateway{
 		config:   config,
@@ -189,7 +189,7 @@ func getEndpointHandler(gate *Gateway, endPoint abstraction.Endpoint) http.Handl
 
 	handlerFunc, ok := gate.handlers[endPoint.HandlerType]
 	if !ok {
-		log.Fatalf("handler %s is not registered", endPoint.HandlerType)
+		log.Fatal().Msgf("handler %s is not registered", endPoint.HandlerType)
 		return nil
 	}
 

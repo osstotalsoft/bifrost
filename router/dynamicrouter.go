@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/rs/zerolog/log"
 	"github.com/satori/go.uuid"
-	log "github.com/sirupsen/logrus"
 )
 
 type dynamicRouter struct {
@@ -59,12 +59,12 @@ func AddRoute(router *dynamicRouter) func(path, pathPrefix string, methods []str
 		route.matcher = router.routeMatcher(route)
 		err := validateRoute(router, route)
 		if err != nil {
-			log.Error(err)
+			log.Error().Err(err).Msg("invalid route")
 			return "", err
 		}
 
 		router.routes.Store(route.UID, route)
-		log.Infof("DynamicRouter: Added new route: id: %s; pathPrefix: %s; path %s", route.UID, route.PathPrefix, route.Path)
+		log.Info().Msgf("DynamicRouter: Added new route: id: %s; pathPrefix: %s; path %s", route.UID, route.PathPrefix, route.Path)
 		return route.UID, nil
 	}
 }
@@ -90,10 +90,10 @@ func RemoveRoute(router *dynamicRouter) func(routeId string) {
 	return func(routeId string) {
 		route, ok := router.routes.Load(routeId)
 		if !ok {
-			log.Error("DynamicRouter: Route does not exist " + routeId)
+			log.Error().Msg("DynamicRouter: Route does not exist " + routeId)
 		}
 
 		router.routes.Delete(routeId)
-		log.Debugf("DynamicRouter: Deleted route id: %s; pathPrefix: %s; path %s", route.(Route).UID, route.(Route).PathPrefix, route.(Route).Path)
+		log.Debug().Msgf("DynamicRouter: Deleted route id: %s; pathPrefix: %s; path %s", route.(Route).UID, route.(Route).PathPrefix, route.(Route).Path)
 	}
 }

@@ -39,9 +39,10 @@ require (
 	github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect
+	github.com/prometheus/client_golang v0.9.2 // indirect
 	github.com/prometheus/procfs v0.0.0-20190306233201-d0f344d83b0c // indirect
+	github.com/rs/zerolog v1.13.0
 	github.com/satori/go.uuid v1.2.0
-	github.com/sirupsen/logrus v1.3.0
 	github.com/spf13/viper v1.3.1
 	github.com/uber-go/atomic v1.3.2 // indirect
 	github.com/uber/jaeger-client-go v2.15.1-0.20190312182356-f4d58ba83788+incompatible

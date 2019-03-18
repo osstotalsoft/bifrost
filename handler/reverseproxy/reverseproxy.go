@@ -5,7 +5,7 @@ import (
 	"github.com/osstotalsoft/bifrost/handler"
 	"github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/strutils"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -13,7 +13,7 @@ import (
 )
 
 //NewReverseProxy create a new reverproxy http.Handler for each endpoint
-func NewReverseProxy() handler.Func {
+func NewReverseProxy(transport http.RoundTripper) handler.Func {
 	return func(endPoint abstraction.Endpoint) http.Handler {
 		//https://github.com/golang/go/issues/16012
 		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
@@ -21,7 +21,7 @@ func NewReverseProxy() handler.Func {
 		return &httputil.ReverseProxy{
 			Director:       getDirector(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix),
 			ModifyResponse: modifyResponse,
-			Transport:      newRoundTripper(),
+			Transport:      transport,
 		}
 	}
 }
@@ -38,7 +38,7 @@ func getDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *htt
 		initial := req.URL.String()
 		target, err := url.Parse(targetUrl)
 		if err != nil {
-			log.Panicf("Error when converting to url %v ", targetUrl)
+			log.Panic().Msgf("Error when converting to url %v ", targetUrl)
 			return
 		}
 		targetQuery := target.RawQuery
@@ -67,7 +67,7 @@ func getDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *htt
 			req.Header.Set("User-Agent", "")
 		}
 
-		log.Tracef("Forwarding request from %v to %v", initial, req.URL.String())
+		log.Debug().Msgf("Forwarding request from %v to %v", initial, req.URL.String())
 	}
 }
 

@@ -12,8 +12,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type mainTest struct {
@@ -155,9 +153,6 @@ var (
 )
 
 func TestGatewayReverseProxy(t *testing.T) {
-
-	log.SetLevel(log.TraceLevel)
-
 	mux := http.NewServeMux()
 	backendServer := httptest.NewServer(mux)
 
@@ -180,7 +175,7 @@ func TestGatewayReverseProxy(t *testing.T) {
 
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
 	gate := gateway.NewGateway(&testConfig2)
-	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy())
+	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport))
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 

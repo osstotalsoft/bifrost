@@ -2,7 +2,7 @@ package kubernetes
 
 import (
 	"github.com/osstotalsoft/bifrost/servicediscovery"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,16 +43,16 @@ func NewKubernetesServiceDiscoveryProvider(inCluster bool, overrideServiceAddres
 	}
 
 	if err != nil {
-		log.Panic(err.Error())
+		log.Panic().Err(err).Msg("cannot connect to discovery provider")
 	}
 
 	if inCluster && overrideServiceAddress != "" {
-		log.Panic("Kubernetes: You cannot override service address while in cluster mode")
+		log.Panic().Msg("Kubernetes: You cannot override service address while in cluster mode")
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Panic(err.Error())
+		log.Panic().Err(err).Msg("cannot connect to discovery provider")
 	}
 
 	return &Provider{
@@ -91,7 +91,7 @@ func updateFunc(provider *Provider) func(oldObj, newObj interface{}) {
 	return func(oldObj, newObj interface{}) {
 		oldSrv := oldObj.(*corev1.Service)
 		newSrv := newObj.(*corev1.Service)
-		log.Debugf("KubernetesProvider: Service updated old: %s, new: %s", oldSrv.String(), newSrv.String())
+		log.Info().Msgf("KubernetesProvider: Service updated old: %s, new: %s", oldSrv.String(), newSrv.String())
 
 		callUpdateSubscribers(provider.onUpdateServiceHandlers,
 			mapToService(oldSrv, provider.overrideServiceAddress),
@@ -102,7 +102,7 @@ func updateFunc(provider *Provider) func(oldObj, newObj interface{}) {
 func deleteFunc(provider *Provider) func(obj interface{}) {
 	return func(obj interface{}) {
 		srv := obj.(*corev1.Service)
-		log.Debugf("KubernetesProvider: Service deleted: %s", srv)
+		log.Info().Msgf("KubernetesProvider: Service deleted: %s", srv.String())
 
 		callSubscribers(provider.onRemoveServiceHandlers, mapToService(srv, provider.overrideServiceAddress))
 	}
@@ -111,7 +111,7 @@ func deleteFunc(provider *Provider) func(obj interface{}) {
 func addFunc(provider *Provider) func(obj interface{}) {
 	return func(obj interface{}) {
 		srv := obj.(*corev1.Service)
-		log.Debugf("KubernetesProvider: New service : %v", srv)
+		log.Info().Msgf("KubernetesProvider: New service : %s", srv.String())
 
 		callSubscribers(provider.onAddServiceHandlers, mapToService(srv, provider.overrideServiceAddress))
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/osstotalsoft/bifrost/middleware"
 	"github.com/osstotalsoft/oidc-jwt-go"
 	"github.com/osstotalsoft/oidc-jwt-go/discovery"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"strings"
 )
@@ -38,7 +38,7 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 		if fl, ok := endpoint.Filters[AuthorizationFilterCode]; ok {
 			err := mapstructure.Decode(fl, &cfg)
 			if err != nil {
-				log.Errorf("AuthorizationFilter: Cannot find or decode AuthorizationEndpointOptions for authorization filter: %v", err)
+				log.Error().Err(err).Msg("AuthorizationFilter: Cannot find or decode AuthorizationEndpointOptions for authorization filter")
 			}
 		}
 
@@ -54,7 +54,7 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				token, err := validator(request)
 				if err != nil {
-					log.Errorln("AuthorizationFilter: Token is not valid:", err)
+					log.Error().Err(err).Msg("AuthorizationFilter: Token is not valid:")
 					//span.LogFields(otlgo.Error(err))
 					UnauthorizedWithHeader(writer, err.Error())
 					return

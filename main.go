@@ -12,12 +12,13 @@ import (
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery/provider/kubernetes"
 	"github.com/osstotalsoft/bifrost/tracing"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"github.com/uber/jaeger-client-go"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 	jaegerlog "github.com/uber/jaeger-client-go/log"
-	"github.com/uber/jaeger-lib/metrics"
+	jaegerprom "github.com/uber/jaeger-lib/metrics/prometheus"
 	"io"
 	"net/http"
 )
@@ -41,7 +42,6 @@ func main() {
 	gate := gateway.NewGateway(cfg)
 	registerHandlerFunc := gateway.RegisterHandler(gate)
 
-	//gateway.AddPreFilter(gate)(filters.AuthorizationFilter())
 	natsHandler, closeNatsConnection := nats.NewNatsPublisher(getNatsHandlerConfig(), nats.TransformMessage, nats.BuildResponse)
 	defer closeNatsConnection()
 
@@ -50,7 +50,7 @@ func main() {
 	gateMiddlewareFunc(auth.AuthorizationFilterCode, tracing.WrapMiddleware(auth.AuthorizationFilter(getIdentityServerConfig()), "AuthorizationFilter"))
 
 	registerHandlerFunc(handler.EventPublisherHandlerType, natsHandler)
-	registerHandlerFunc(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy())
+	registerHandlerFunc(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(tracing.NewRoundTripperWithOpenTrancing()))
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
@@ -65,7 +65,7 @@ func main() {
 
 	err := gateway.ListenAndServe(gate, tracing.Wrap(r.GetHandler(dynRouter)))
 	if err != nil {
-		log.Print(err)
+		log.Error().Err(err).Msg("")
 	}
 
 	//log.Info("Shutting down")
@@ -74,11 +74,12 @@ func main() {
 }
 
 func setLogging(logLevel string) {
-	log.SetFormatter(&log.JSONFormatter{})
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
 	//log.SetReportCaller(true)
-	level, e := log.ParseLevel(logLevel)
+	level, e := zerolog.ParseLevel(logLevel)
 	if e == nil {
-		log.SetLevel(level)
+		zerolog.SetGlobalLevel(level)
 	}
 }
 
@@ -90,15 +91,15 @@ func getConfig() *config.Config {
 
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
-		log.Panicf("Fatal error config file: %s", err)
+		log.Panic().Err(err).Msg("unable to read configuration file")
 	}
 
 	var cfg = new(config.Config)
 	err = viper.Unmarshal(cfg)
 	if err != nil {
-		log.Panicf("unable to decode into struct, %v", err)
+		log.Panic().Err(err).Msg("unable to decode into struct")
 	}
-	log.Infof("Using configuration : %v", viper.AllSettings())
+	log.Info().Fields(viper.AllSettings()).Msg("all settings from configuration ")
 
 	return cfg
 }
@@ -107,7 +108,7 @@ func getNatsHandlerConfig() nats.Config {
 	var cfg = new(nats.Config)
 	err := viper.UnmarshalKey("handlers.event.nats", cfg)
 	if err != nil {
-		log.Panicf("unable to decode into NatsConfig, %v", err)
+		log.Panic().Err(err).Msg("unable to decode into NatsConfig")
 	}
 
 	return *cfg
@@ -117,7 +118,7 @@ func getIdentityServerConfig() auth.AuthorizationOptions {
 	var cfg = new(auth.AuthorizationOptions)
 	err := viper.UnmarshalKey("filters.auth", cfg)
 	if err != nil {
-		log.Panicf("unable to decode into AuthorizationOptions, %v", err)
+		log.Panic().Err(err).Msg("unable to decode into AuthorizationOptions")
 	}
 
 	return *cfg
@@ -132,13 +133,14 @@ func setupJaeger() (opentracing.Tracer, io.Closer) {
 			Param: 1,
 		},
 		Reporter: &jaegercfg.ReporterConfig{
-			LogSpans:           true,
+			LogSpans:           false,
 			LocalAgentHostPort: "kube-worker1:31457",
 		},
 	}
 
 	jLogger := jaegerlog.StdLogger
-	jMetricsFactory := metrics.NullFactory
+	jMetricsFactory := jaegerprom.New() //metrics.NullFactory
+	//jaeger.NewMetrics(factory, map[string]string{"lib": "jaeger"})
 
 	// Initialize tracer with a logger and a metrics factory
 	tracer, closer, _ := cfg.NewTracer(

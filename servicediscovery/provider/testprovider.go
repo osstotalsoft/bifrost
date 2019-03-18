@@ -2,7 +2,7 @@ package provider
 
 import (
 	"github.com/osstotalsoft/bifrost/servicediscovery"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 //TestProvider is a service discovery provider used for testing
@@ -69,7 +69,7 @@ func Start(provider *TestProvider) *TestProvider {
 
 func callAllSubscribers(handlers []servicediscovery.ServiceFunc, service servicediscovery.Service) {
 
-	log.Infof("Added new service: %v", service)
+	log.Info().Msgf("Added new service: %v", service)
 
 	for _, fn := range handlers {
 		fn(service)

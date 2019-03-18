@@ -6,8 +6,8 @@ import (
 	"github.com/nats-io/go-nats-streaming"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/handler"
+	"github.com/rs/zerolog/log"
 	"github.com/satori/go.uuid"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 )
@@ -46,7 +46,7 @@ func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, 
 
 	natsConnection, closeConnectionFunc, err := connect(config.NatsUrl, config.ClientId, config.Cluster)
 	if err != nil {
-		log.Error(err)
+		log.Error().Err(err).Msg("cannot connect")
 		return nil, closeConnectionFunc
 	}
 
@@ -63,7 +63,7 @@ func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, 
 
 			messageBytes, err := ioutil.ReadAll(request.Body)
 			if err != nil {
-				log.Error(err)
+				log.Error().Err(err).Msg("cannot read body")
 				http.Error(writer, "Bad request", http.StatusBadRequest)
 				return
 			}
@@ -71,25 +71,25 @@ func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, 
 			if transformMessageFunc != nil {
 				messageBytes, err = transformMessageFunc(messageBytes, messageContext, request.Context())
 				if err != nil {
-					log.Error(err)
+					log.Error().Err(err).Msg("cannot transform")
 					http.Error(writer, "Internal server error", http.StatusInternalServerError)
 					return
 				}
 			}
 
 			if err := natsConnection.Publish(topic, messageBytes); err != nil {
-				log.Error(err)
+				log.Error().Err(err).Msg("cannot publish")
 				http.Error(writer, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
-			log.Tracef("Forwarding request from %v to %v", request.URL.String(), topic)
+			log.Debug().Msgf("Forwarding request from %v to %v", request.URL.String(), topic)
 
 			if buildResponseFunc != nil {
 				responseBytes, err := buildResponseFunc(messageContext, request.Context())
 
 				if err != nil {
-					log.Error(err)
+					log.Error().Err(err).Msg("")
 					http.Error(writer, "Internal server error", http.StatusInternalServerError)
 					return
 				}
@@ -107,12 +107,14 @@ func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, 
 func connect(natsUrl, clientId, clusterId string) (stan.Conn, CloseConnectionFunc, error) {
 	nc, err := stan.Connect(clusterId, clientId+uuid.NewV4().String(), stan.NatsURL(natsUrl))
 	if err != nil {
-		log.Fatal(err)
+		log.Error().Err(err).Msg("cannot connect to nats server")
 		return nc, func() {}, err
 	}
 
 	return nc, func() {
 		err := nc.Close()
-		log.Error(err)
+		if err != nil {
+			log.Error().Err(err).Msg("cannot close nats connection")
+		}
 	}, err
 }

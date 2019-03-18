@@ -1,4 +1,4 @@
-package reverseproxy
+package tracing
 
 import (
 	"github.com/opentracing/opentracing-go"
@@ -10,22 +10,15 @@ type roundTripper struct {
 	http.RoundTripper
 }
 
-func newRoundTripper() *roundTripper {
+func NewRoundTripperWithOpenTrancing() *roundTripper {
 	return &roundTripper{RoundTripper: http.DefaultTransport}
 }
 
 func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
-	tracer := opentracing.GlobalTracer()
-	parent := opentracing.SpanFromContext(req.Context())
-	var spanctx opentracing.SpanContext
-	if parent != nil {
-		spanctx = parent.Context()
-	}
-	root := tracer.StartSpan("Reverse Proxy", opentracing.ChildOf(spanctx))
+	sp, _ := opentracing.StartSpanFromContext(req.Context(), "Reverse Proxy to "+req.URL.String())
+	defer sp.Finish()
 
-	ctx := root.Context()
-	sp := tracer.StartSpan(req.URL.Scheme+" "+req.Method, opentracing.ChildOf(ctx))
 	ext.SpanKindRPCClient.Set(sp)
 	ext.Component.Set(sp, "net/http")
 
@@ -33,13 +26,10 @@ func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	ext.HTTPUrl.Set(sp, req.URL.String())
 
 	carrier := opentracing.HTTPHeadersCarrier(req.Header)
-	sp.Tracer().Inject(sp.Context(), opentracing.HTTPHeaders, carrier)
+	_ = sp.Tracer().Inject(sp.Context(), opentracing.HTTPHeaders, carrier)
 
 	resp, err := rt.RoundTripper.RoundTrip(req)
 	ext.HTTPStatusCode.Set(sp, uint16(resp.StatusCode))
-
-	defer sp.Finish()
-	defer root.Finish()
 
 	return resp, err
 }
