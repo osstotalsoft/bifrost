@@ -5,8 +5,14 @@ import (
 	"github.com/osstotalsoft/bifrost/gateway"
 	"github.com/osstotalsoft/bifrost/handler"
 	"github.com/osstotalsoft/bifrost/handler/reverseproxy"
+	"github.com/osstotalsoft/bifrost/httputils"
+	"github.com/osstotalsoft/bifrost/log"
+	"github.com/osstotalsoft/bifrost/middleware"
+	"github.com/osstotalsoft/bifrost/middleware/cors"
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
+	"github.com/osstotalsoft/bifrost/tracing"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -153,29 +159,15 @@ var (
 )
 
 func TestGatewayReverseProxy(t *testing.T) {
-	mux := http.NewServeMux()
-	backendServer := httptest.NewServer(mux)
-
-	for _, tc := range serviceList {
-		tc.Address = backendServer.URL
-	}
-
-	mux.HandleFunc("/", func(w http.ResponseWriter, request *http.Request) {
-		url1, _ := url.PathUnescape(request.RequestURI)
-
-		for _, tc := range testCases2 {
-			if tc.backendUrl == url1 {
-				_, _ = w.Write([]byte(tc.responseFromGateway))
-				return
-			}
-		}
-		http.NotFound(w, request)
-	})
+	backendServer := startBackend()
 	defer backendServer.Close()
 
-	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
-	gate := gateway.NewGateway(&testConfig2)
-	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport))
+	logger, _ := zap.NewDevelopment()
+	factory := log.ZapLoggerFactory(logger)
+
+	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, factory)
+	gate := gateway.NewGateway(&testConfig2, factory)
+	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport, factory))
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 
@@ -206,4 +198,85 @@ func TestGatewayReverseProxy(t *testing.T) {
 			})
 		}
 	})
+}
+
+func startBackend() *httptest.Server {
+	mux := http.NewServeMux()
+	backendServer := httptest.NewServer(mux)
+
+	for _, tc := range serviceList {
+		tc.Address = backendServer.URL
+	}
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, request *http.Request) {
+		url1, _ := url.PathUnescape(request.RequestURI)
+
+		for _, tc := range testCases2 {
+			if tc.backendUrl == url1 {
+				_, _ = w.Write([]byte(tc.responseFromGateway))
+				return
+			}
+		}
+		http.NotFound(w, request)
+	})
+
+	return backendServer
+}
+
+func BenchmarkGatewayReverseProxy(b *testing.B) {
+	backendServer := startBackend()
+	defer backendServer.Close()
+
+	factory := log.ZapLoggerFactory(zap.NewNop())
+	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, factory)
+	gate := gateway.NewGateway(&testConfig2, factory)
+	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport, factory))
+
+	gateHandler := r.GetHandler(dynRouter)
+
+	for _, service := range serviceList {
+		gateway.AddService(gate)(r.AddRoute(dynRouter))(*service)
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/offers2/add_offer/555", nil)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		gateHandler.ServeHTTP(w, req)
+		w.Result()
+	}
+}
+
+func BenchmarkGateway(b *testing.B) {
+	backendServer := startBackend()
+	defer backendServer.Close()
+
+	factory := log.ZapLoggerFactory(zap.NewNop())
+	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, factory)
+	gate := gateway.NewGateway(&testConfig2, factory)
+
+	gateway.UseMiddleware(gate)(cors.CORSFilterCode, middleware.Compose(
+		tracing.MiddlewareStartSpan("CORS Filter"),
+	)(cors.CORSFilter("*")))
+
+	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport, factory))
+	gateHandler := httputils.RecoveryHandler(factory)(r.GetHandler(dynRouter))
+
+	for _, service := range serviceList {
+		gateway.AddService(gate)(r.AddRoute(dynRouter))(*service)
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/offers2/add_offer/555", nil)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		gateHandler.ServeHTTP(w, req)
+		w.Result()
+	}
 }

@@ -1,17 +1,18 @@
 package gateway
 
 import (
+	"fmt"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/handler"
+	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/bifrost/middleware"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"github.com/osstotalsoft/bifrost/strutils"
+	"go.uber.org/zap"
 	"net/http"
 	"strconv"
 	"sync"
-
-	"github.com/rs/zerolog/log"
 )
 
 //DefaultHandlerType is the default handler used when a request matches a route
@@ -23,6 +24,7 @@ type Gateway struct {
 	endPointToRouteMapper sync.Map
 	middlewares           []middlewareTuple
 	handlers              map[string]handler.Func
+	loggerFactory         log.Factory
 }
 
 type middlewareTuple struct {
@@ -31,13 +33,14 @@ type middlewareTuple struct {
 }
 
 //NewGateway is the Gateway constructor
-func NewGateway(config *config.Config) *Gateway {
+func NewGateway(config *config.Config, loggerFactory log.Factory) *Gateway {
 	if config == nil {
-		log.Panic().Msg("Gateway: Must provide a configuration file")
+		loggerFactory(nil).Info("Gateway: Must provide a configuration file")
 	}
 	return &Gateway{
-		config:   config,
-		handlers: map[string]handler.Func{},
+		config:        config,
+		handlers:      map[string]handler.Func{},
+		loggerFactory: loggerFactory,
 	}
 }
 
@@ -189,7 +192,7 @@ func getEndpointHandler(gate *Gateway, endPoint abstraction.Endpoint) http.Handl
 
 	handlerFunc, ok := gate.handlers[endPoint.HandlerType]
 	if !ok {
-		log.Fatal().Msgf("handler %s is not registered", endPoint.HandlerType)
+		gate.loggerFactory(nil).Fatal(fmt.Sprintf("handler %s is not registered", endPoint.HandlerType), zap.String("handler", endPoint.HandlerType))
 		return nil
 	}
 

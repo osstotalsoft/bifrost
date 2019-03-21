@@ -3,25 +3,28 @@ package router
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/osstotalsoft/bifrost/log"
+	"github.com/satori/go.uuid"
+	"go.uber.org/zap"
 	"net/http"
 	"sync"
-
-	"github.com/rs/zerolog/log"
-	"github.com/satori/go.uuid"
 )
 
 type dynamicRouter struct {
 	routes       *sync.Map
 	routeMatcher RouteMatcherFunc
+	logger       log.Logger
 }
 
 //NewDynamicRouter creates a new dynamic router
 //Its dynamic because it can add/remove routes at runtime
 //this router does not do any route matching, it relies on third parties for that
-func NewDynamicRouter(routeMatcher RouteMatcherFunc) *dynamicRouter {
+func NewDynamicRouter(routeMatcher RouteMatcherFunc, loggerFactory log.Factory) *dynamicRouter {
 	return &dynamicRouter{
 		new(sync.Map),
 		routeMatcher,
+		loggerFactory(nil),
 	}
 }
 
@@ -59,12 +62,12 @@ func AddRoute(router *dynamicRouter) func(path, pathPrefix string, methods []str
 		route.matcher = router.routeMatcher(route)
 		err := validateRoute(router, route)
 		if err != nil {
-			log.Error().Err(err).Msg("invalid route")
+			router.logger.Error("invalid route", zap.Error(err))
 			return "", err
 		}
 
 		router.routes.Store(route.UID, route)
-		log.Info().Msgf("DynamicRouter: Added new route: id: %s; pathPrefix: %s; path %s", route.UID, route.PathPrefix, route.Path)
+		router.logger.Info(fmt.Sprintf("DynamicRouter: Added new route: id: %s; pathPrefix: %s; path %s", route.UID, route.PathPrefix, route.Path))
 		return route.UID, nil
 	}
 }
@@ -90,10 +93,10 @@ func RemoveRoute(router *dynamicRouter) func(routeId string) {
 	return func(routeId string) {
 		route, ok := router.routes.Load(routeId)
 		if !ok {
-			log.Error().Msg("DynamicRouter: Route does not exist " + routeId)
+			router.logger.Error("DynamicRouter: Route does not exist " + routeId)
 		}
 
 		router.routes.Delete(routeId)
-		log.Debug().Msgf("DynamicRouter: Deleted route id: %s; pathPrefix: %s; path %s", route.(Route).UID, route.(Route).PathPrefix, route.(Route).Path)
+		router.logger.Debug(fmt.Sprintf("DynamicRouter: Deleted route id: %s; pathPrefix: %s; path %s", route.(Route).UID, route.(Route).PathPrefix, route.(Route).Path))
 	}
 }

@@ -4,7 +4,9 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/test"
 	"github.com/osstotalsoft/bifrost/abstraction"
+	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/oidc-jwt-go"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -61,7 +63,8 @@ func TestAuthorizationFilter(t *testing.T) {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tokenString, _ := token.SignedString(privateKey)
 
-	filter := AuthorizationFilter(intentityConfig)(testEndPoint)
+	logger, _ := zap.NewDevelopment()
+	filter := AuthorizationFilter(intentityConfig, log.ZapLoggerFactory(logger))(testEndPoint)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "OK")
 	})
@@ -84,7 +87,8 @@ func BenchmarkAuthorizationFilter(b *testing.B) {
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tokenString, _ := token.SignedString(privateKey)
 
-	filter := AuthorizationFilter(intentityConfig)(testEndPoint)
+	logger, _ := zap.NewDevelopment()
+	filter := AuthorizationFilter(intentityConfig, log.ZapLoggerFactory(logger))(testEndPoint)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "OK")
 	})

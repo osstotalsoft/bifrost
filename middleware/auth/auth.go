@@ -6,10 +6,11 @@ import (
 	jwtRequest "github.com/dgrijalva/jwt-go/request"
 	"github.com/mitchellh/mapstructure"
 	"github.com/osstotalsoft/bifrost/abstraction"
+	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/bifrost/middleware"
 	"github.com/osstotalsoft/oidc-jwt-go"
 	"github.com/osstotalsoft/oidc-jwt-go/discovery"
-	"github.com/rs/zerolog/log"
+	"go.uber.org/zap"
 	"net/http"
 	"strings"
 )
@@ -32,13 +33,13 @@ type AuthorizationEndpointOptions struct {
 
 //AuthorizationFilter is a middleware that handles authorization using
 //an OpendID Connect server
-func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
+func AuthorizationFilter(opts AuthorizationOptions, loggerFactory log.Factory) middleware.Func {
 	return func(endpoint abstraction.Endpoint) func(http.Handler) http.Handler {
 		cfg := AuthorizationEndpointOptions{}
 		if fl, ok := endpoint.Filters[AuthorizationFilterCode]; ok {
 			err := mapstructure.Decode(fl, &cfg)
 			if err != nil {
-				log.Error().Err(err).Msg("AuthorizationFilter: Cannot find or decode AuthorizationEndpointOptions for authorization filter")
+				loggerFactory(nil).Error("AuthorizationFilter: Cannot find or decode AuthorizationEndpointOptions for authorization filter", zap.Error(err))
 			}
 		}
 
@@ -48,14 +49,17 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 		validator := oidc.NewJWTValidator(jwtRequest.OAuth2Extractor, opts.SecretProvider, opts.Audience, opts.Authority)
 
 		return func(next http.Handler) http.Handler {
-			if !endpoint.Secured {
-				return next
-			}
 			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				logger := loggerFactory(request.Context())
+				if !endpoint.Secured {
+					logger.Debug("AuthorizationFilter skipped")
+					next.ServeHTTP(writer, request)
+					return
+				}
+
 				token, err := validator(request)
 				if err != nil {
-					log.Error().Err(err).Msg("AuthorizationFilter: Token is not valid:")
-					//span.LogFields(otlgo.Error(err))
+					logger.Error("AuthorizationFilter: Token is not valid", zap.Error(err))
 					UnauthorizedWithHeader(writer, err.Error())
 					return
 				}
@@ -64,8 +68,8 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 					if len(cfg.AllowedScopes) > 0 {
 						hasScope := checkScopes(cfg.AllowedScopes, token.Claims.(jwt.MapClaims)["scope"].([]interface{}))
 						if !hasScope {
+							logger.Error("AuthorizationFilter: insufficient scope", zap.String("error", "insufficient scope"))
 							InsufficientScope(writer, "insufficient scope", cfg.AllowedScopes)
-							//span.LogFields(otlgo.String("error", "insufficient scope"))
 							return
 						}
 					}
@@ -73,8 +77,8 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 					if len(cfg.ClaimsRequirement) > 0 {
 						hasScope := checkClaimsRequirements(cfg.ClaimsRequirement, token.Claims.(jwt.MapClaims))
 						if !hasScope {
+							logger.Error("AuthorizationFilter: invalid claim", zap.String("error", "invalid claim"))
 							Forbidden(writer, "invalid claim")
-							//span.LogFields(otlgo.String("error", "invalid claim"))
 							return
 						}
 					}

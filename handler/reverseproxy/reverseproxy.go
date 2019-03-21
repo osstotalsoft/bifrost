@@ -1,11 +1,13 @@
 package reverseproxy
 
 import (
+	"fmt"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/handler"
+	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/strutils"
-	"github.com/rs/zerolog/log"
+	"go.uber.org/zap"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -13,13 +15,13 @@ import (
 )
 
 //NewReverseProxy create a new reverproxy http.Handler for each endpoint
-func NewReverseProxy(transport http.RoundTripper) handler.Func {
+func NewReverseProxy(transport http.RoundTripper, loggerFactory log.Factory) handler.Func {
 	return func(endPoint abstraction.Endpoint) http.Handler {
 		//https://github.com/golang/go/issues/16012
 		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
 		return &httputil.ReverseProxy{
-			Director:       getDirector(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix),
+			Director:       getDirector(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix, loggerFactory),
 			ModifyResponse: modifyResponse,
 			Transport:      transport,
 		}
@@ -32,13 +34,14 @@ func modifyResponse(response *http.Response) error {
 	return nil
 }
 
-func getDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *http.Request) {
+func getDirector(targetUrl, targetUrlPath, targetUrlPrefix string, loggerFactory log.Factory) func(req *http.Request) {
 	return func(req *http.Request) {
+		logger := loggerFactory(req.Context())
 		routeContext := req.Context().Value(router.ContextRouteKey).(router.RouteContext)
 		initial := req.URL.String()
 		target, err := url.Parse(targetUrl)
 		if err != nil {
-			log.Panic().Msgf("Error when converting to url %v ", targetUrl)
+			logger.Panic("Error when converting to url "+targetUrl, zap.String("target_url", targetUrl))
 			return
 		}
 		targetQuery := target.RawQuery
@@ -67,7 +70,7 @@ func getDirector(targetUrl, targetUrlPath, targetUrlPrefix string) func(req *htt
 			req.Header.Set("User-Agent", "")
 		}
 
-		log.Debug().Msgf("Forwarding request from %v to %v", initial, req.URL.String())
+		logger.Debug(fmt.Sprintf("Forwarding request from %v to %v", initial, req.URL.String()))
 	}
 }
 

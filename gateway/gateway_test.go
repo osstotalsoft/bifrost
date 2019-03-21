@@ -3,7 +3,9 @@ package gateway
 import (
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/config"
+	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
+	"go.uber.org/zap"
 	"net/http"
 	"testing"
 )
@@ -134,7 +136,9 @@ var (
 )
 
 func TestAddService(t *testing.T) {
-	gate := NewGateway(&testConfig1)
+	logger, _ := zap.NewDevelopment()
+	factory := log.ZapLoggerFactory(logger)
+	gate := NewGateway(&testConfig1, factory)
 	RegisterHandler(gate)(DefaultHandlerType, func(endpoint abstraction.Endpoint) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		})

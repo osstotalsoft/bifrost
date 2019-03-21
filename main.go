@@ -1,24 +1,27 @@
 package main
 
 import (
+	"fmt"
 	"github.com/opentracing/opentracing-go"
 	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/gateway"
 	"github.com/osstotalsoft/bifrost/handler"
 	"github.com/osstotalsoft/bifrost/handler/nats"
 	"github.com/osstotalsoft/bifrost/handler/reverseproxy"
+	"github.com/osstotalsoft/bifrost/httputils"
+	"github.com/osstotalsoft/bifrost/middleware"
 	"github.com/osstotalsoft/bifrost/middleware/auth"
 	"github.com/osstotalsoft/bifrost/middleware/cors"
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery/provider/kubernetes"
 	"github.com/osstotalsoft/bifrost/tracing"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"github.com/uber/jaeger-client-go"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 	jaegerlog "github.com/uber/jaeger-client-go/log"
 	jaegerprom "github.com/uber/jaeger-lib/metrics/prometheus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"io"
 	"net/http"
 )
@@ -30,27 +33,40 @@ func main() {
 	//https://github.com/golang/go/issues/16012
 	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
-	cfg := getConfig()
-	setLogging(cfg.LogLevel)
+	level, logger, _ := getZapLogger()
+	defer logger.Sync()
 
-	_, closer := setupJaeger()
+	cfg := getConfig(logger)
+	changeLogLevel(level, cfg.LogLevel)
+
+	loggerFactory := tracing.SpanLoggerFactory(logger.With(zap.String("service", "api gateway")))
+
+	_, closer := setupJaeger(logger)
 	defer closer.Close()
 
-	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress)
-	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher)
+	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress, loggerFactory)
+	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, loggerFactory)
 	//registry := in_memory_registry.NewInMemoryStore()
-	gate := gateway.NewGateway(cfg)
-	registerHandlerFunc := gateway.RegisterHandler(gate)
 
-	natsHandler, closeNatsConnection := nats.NewNatsPublisher(getNatsHandlerConfig(), nats.TransformMessage, nats.BuildResponse)
+	natsHandler, closeNatsConnection := nats.NewNatsPublisher(getNatsHandlerConfig(logger), nats.TransformMessage, nats.BuildResponse, loggerFactory)
 	defer closeNatsConnection()
 
+	gate := gateway.NewGateway(cfg, loggerFactory)
+	registerHandlerFunc := gateway.RegisterHandler(gate)
 	gateMiddlewareFunc := gateway.UseMiddleware(gate)
-	gateMiddlewareFunc(cors.CORSFilterCode, tracing.WrapMiddleware(cors.CORSFilter("*"), "CORSFilter"))
-	gateMiddlewareFunc(auth.AuthorizationFilterCode, tracing.WrapMiddleware(auth.AuthorizationFilter(getIdentityServerConfig()), "AuthorizationFilter"))
 
-	registerHandlerFunc(handler.EventPublisherHandlerType, natsHandler)
-	registerHandlerFunc(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(tracing.NewRoundTripperWithOpenTrancing()))
+	gateMiddlewareFunc(cors.CORSFilterCode, middleware.Compose(
+		tracing.MiddlewareStartSpan("CORS Filter"),
+	)(cors.CORSFilter("*")))
+
+	gateMiddlewareFunc(auth.AuthorizationFilterCode, middleware.Compose(
+		tracing.MiddlewareStartSpan("Authorization Filter"),
+	)(auth.AuthorizationFilter(getIdentityServerConfig(logger), loggerFactory)))
+
+	registerHandlerFunc(handler.EventPublisherHandlerType, handler.Compose(tracing.HandlerStartSpan("Nats Handler"))(natsHandler))
+	registerHandlerFunc(handler.ReverseProxyHandlerType, handler.Compose(
+		tracing.HandlerStartSpan("Reverse Proxy Handler"),
+	)(reverseproxy.NewReverseProxy(tracing.NewRoundTripperWithOpenTrancing(), loggerFactory)))
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
@@ -63,9 +79,13 @@ func main() {
 		kubernetes.Start,
 	)(provider)
 
-	err := gateway.ListenAndServe(gate, tracing.Wrap(r.GetHandler(dynRouter)))
+	err := gateway.ListenAndServe(gate, httputils.Compose(
+		httputils.RecoveryHandler(loggerFactory),
+		tracing.StartSpan,
+	)(r.GetHandler(dynRouter)))
+
 	if err != nil {
-		log.Error().Err(err).Msg("")
+		logger.Error("gateway cannot start", zap.Error(err))
 	}
 
 	//log.Info("Shutting down")
@@ -73,17 +93,24 @@ func main() {
 	//closeNatsConnection()
 }
 
-func setLogging(logLevel string) {
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-
-	//log.SetReportCaller(true)
-	level, e := zerolog.ParseLevel(logLevel)
-	if e == nil {
-		zerolog.SetGlobalLevel(level)
-	}
+func getZapLogger() (zap.AtomicLevel, *zap.Logger, error) {
+	cfg := zap.NewDevelopmentConfig()
+	cfg.Encoding = "json"
+	cfg.DisableCaller = true
+	l, e := cfg.Build()
+	return cfg.Level, l, e
 }
 
-func getConfig() *config.Config {
+func changeLogLevel(oldLevel zap.AtomicLevel, newLevel string) {
+	level := zapcore.InfoLevel
+	e := level.Set(newLevel)
+	if e == nil {
+		oldLevel.SetLevel(level)
+	}
+	return
+}
+
+func getConfig(logger *zap.Logger) *config.Config {
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	viper.SetConfigType("json")
@@ -91,42 +118,52 @@ func getConfig() *config.Config {
 
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
-		log.Panic().Err(err).Msg("unable to read configuration file")
+		logger.Panic("unable to read configuration file", zap.Error(err))
 	}
 
 	var cfg = new(config.Config)
 	err = viper.Unmarshal(cfg)
 	if err != nil {
-		log.Panic().Err(err).Msg("unable to decode into struct")
+		logger.Panic("unable to decode into struct", zap.Error(err))
 	}
-	log.Info().Fields(viper.AllSettings()).Msg("all settings from configuration ")
+	logger.Info(fmt.Sprintf("using configuration: %v", viper.AllSettings()))
 
 	return cfg
 }
 
-func getNatsHandlerConfig() nats.Config {
+func getNatsHandlerConfig(logger *zap.Logger) nats.Config {
 	var cfg = new(nats.Config)
 	err := viper.UnmarshalKey("handlers.event.nats", cfg)
 	if err != nil {
-		log.Panic().Err(err).Msg("unable to decode into NatsConfig")
+		logger.Panic("unable to decode into NatsConfig", zap.Error(err))
 	}
 
 	return *cfg
 }
 
-func getIdentityServerConfig() auth.AuthorizationOptions {
+func getIdentityServerConfig(logger *zap.Logger) auth.AuthorizationOptions {
 	var cfg = new(auth.AuthorizationOptions)
 	err := viper.UnmarshalKey("filters.auth", cfg)
 	if err != nil {
-		log.Panic().Err(err).Msg("unable to decode into AuthorizationOptions")
+		logger.Panic("unable to decode into AuthorizationOptions", zap.Error(err))
 	}
 
 	return *cfg
 }
 
-func setupJaeger() (opentracing.Tracer, io.Closer) {
+func setupJaeger(logger *zap.Logger) (opentracing.Tracer, io.Closer) {
+	var cfg = &struct {
+		Enabled bool   `json:"enabled"`
+		Agent   string `json:"agent"`
+	}{}
 
-	cfg := jaegercfg.Configuration{
+	err := viper.UnmarshalKey("opentracing", cfg)
+	if err != nil {
+		logger.Panic("unable to decode into Jaeger Config", zap.Error(err))
+	}
+
+	jconfig := jaegercfg.Configuration{
+		Disabled:    !cfg.Enabled,
 		ServiceName: "Bifrost API Gateway",
 		Sampler: &jaegercfg.SamplerConfig{
 			Type:  jaeger.SamplerTypeConst,
@@ -134,7 +171,7 @@ func setupJaeger() (opentracing.Tracer, io.Closer) {
 		},
 		Reporter: &jaegercfg.ReporterConfig{
 			LogSpans:           false,
-			LocalAgentHostPort: "kube-worker1:31457",
+			LocalAgentHostPort: cfg.Agent,
 		},
 	}
 
@@ -143,7 +180,7 @@ func setupJaeger() (opentracing.Tracer, io.Closer) {
 	//jaeger.NewMetrics(factory, map[string]string{"lib": "jaeger"})
 
 	// Initialize tracer with a logger and a metrics factory
-	tracer, closer, _ := cfg.NewTracer(
+	tracer, closer, _ := jconfig.NewTracer(
 		jaegercfg.Logger(jLogger),
 		jaegercfg.Metrics(jMetricsFactory),
 	)

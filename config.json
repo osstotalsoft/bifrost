@@ -90,5 +90,9 @@
       "authority": "https://leasing-sso.appservice.online",
       "audience": "LSNG.Api"
     }
+  },
+  "opentracing": {
+    "enabled": true,
+    "agent": "kube-worker1:31457"
   }
 }
