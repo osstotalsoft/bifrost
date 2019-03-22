@@ -37,6 +37,7 @@
       ],
       "filters": {
         "auth": {
+          "disabled": false,
           "allowed_scopes": [
             "LSNG.Api.read_only",
             "Notifier.Api.write"
@@ -60,6 +61,10 @@
           ]
         }
       }
+    },
+    {
+      "service_name": "hubs",
+      "upstream_path_prefix": "/hubs"
     },
     {
       "service_name": "lsng-api",
@@ -89,10 +94,21 @@
     "auth": {
       "authority": "https://leasing-sso.appservice.online",
       "audience": "LSNG.Api"
+    },
+    "cors": {
+      "allowed_origins": [
+        "http://localhost:3000",
+        "https://leasing-app.appservice.online",
+        "https://lsng.appservice.online"
+      ]
+    },
+    "rate_limit": {
+      "enabled": false,
+      "limit": 5000
     }
   },
   "opentracing": {
-    "enabled": false,
+    "enabled": true,
     "agent": "kube-worker1:31457"
   }
 }

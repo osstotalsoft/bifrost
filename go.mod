@@ -52,7 +52,7 @@ require (
 	go.uber.org/zap v1.9.1
 	golang.org/x/net v0.0.0-20190320064053-1272bf9dcd53 // indirect
 	golang.org/x/oauth2 v0.0.0-20190319182350-c85d3e98c914 // indirect
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
+	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.0.0-20190202010724-74b699b93c15
 	k8s.io/apimachinery v0.0.0-20190223094358-dcb391cde5ca

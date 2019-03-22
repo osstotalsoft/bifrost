@@ -11,11 +11,16 @@ import (
 //CORSFilterCode is the code used to register this middleware
 const CORSFilterCode = "cors"
 
+//AuthorizationOptions are the options configured for all endpoints
+type Options struct {
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
+}
+
 // CORSFilter provides Cross-Origin Resource Sharing middleware.
 // using gorilla cors handlers
-func CORSFilter(allowedOrigins ...string) middleware.Func {
+func CORSFilter(options Options) middleware.Func {
 	return func(endpoint abstraction.Endpoint, loggerFactory log.Factory) func(http.Handler) http.Handler {
-		originis := handlers.AllowedOrigins(allowedOrigins)
+		originis := handlers.AllowedOrigins(options.AllowedOrigins)
 		methods := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
 		headers := handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Language", "Origin", "X-Requested-With", "Content-Type", "Authorization"})
 

@@ -55,9 +55,11 @@ func main() {
 	registerHandlerFunc := gateway.RegisterHandler(gate)
 	gateMiddlewareFunc := gateway.UseMiddleware(gate)
 
+	//gateMiddlewareFunc(ratelimit.RateLimitingFilterCode, ratelimit.RateLimiting(ratelimit.MaxRequestLimit))
+
 	gateMiddlewareFunc(cors.CORSFilterCode, middleware.Compose(
 		tracing.MiddlewareSpanWrapper("CORS Filter"),
-	)(cors.CORSFilter("*")))
+	)(cors.CORSFilter(getCORSConfig(zlogger))))
 
 	gateMiddlewareFunc(auth.AuthorizationFilterCode, middleware.Compose(
 		tracing.MiddlewareSpanWrapper("Authorization Filter"),
@@ -146,6 +148,16 @@ func getIdentityServerConfig(logger *zap.Logger) auth.AuthorizationOptions {
 	err := viper.UnmarshalKey("filters.auth", cfg)
 	if err != nil {
 		logger.Panic("unable to decode into AuthorizationOptions", zap.Error(err))
+	}
+
+	return *cfg
+}
+
+func getCORSConfig(logger *zap.Logger) cors.Options {
+	var cfg = new(cors.Options)
+	err := viper.UnmarshalKey("filters.cors", cfg)
+	if err != nil {
+		logger.Panic("unable to decode into cors.Options", zap.Error(err))
 	}
 
 	return *cfg

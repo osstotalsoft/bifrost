@@ -31,6 +31,9 @@ func NewReverseProxy(transport http.RoundTripper) handler.Func {
 func modifyResponse(response *http.Response) error {
 	//hack when upstream service has cors enabled; cors will be handled by the gateway
 	response.Header.Del("Access-Control-Allow-Origin")
+	response.Header.Del("Access-Control-Allow-Credentials")
+	response.Header.Del("Access-Control-Allow-Methods")
+	response.Header.Del("Access-Control-Allow-Headers")
 	return nil
 }
 

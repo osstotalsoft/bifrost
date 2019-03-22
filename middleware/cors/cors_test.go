@@ -36,7 +36,8 @@ func TestCORSFilter(t *testing.T) {
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	logger, _ := zap.NewDevelopment()
-	CORSFilter("http://www.example.com/")(endpoint, log.ZapLoggerFactory(logger))(testHandler).ServeHTTP(rr, r)
+	options := Options{AllowedOrigins: []string{"http://www.example.com/"}}
+	CORSFilter(options)(endpoint, log.ZapLoggerFactory(logger))(testHandler).ServeHTTP(rr, r)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
@@ -63,7 +64,8 @@ func BenchmarkCORSPreflight(b *testing.B) {
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	logger, _ := zap.NewDevelopment()
-	h := CORSFilter("*")(endpoint, log.ZapLoggerFactory(logger))(testHandler)
+	options := Options{AllowedOrigins: []string{"http://www.example.com/"}}
+	h := CORSFilter(options)(endpoint, log.ZapLoggerFactory(logger))(testHandler)
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -84,7 +86,8 @@ func BenchmarkCORSActualRequest(b *testing.B) {
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	logger, _ := zap.NewDevelopment()
-	h := CORSFilter("http://www.example.com/")(endpoint, log.ZapLoggerFactory(logger))(testHandler)
+	options := Options{AllowedOrigins: []string{"http://www.example.com/"}}
+	h := CORSFilter(options)(endpoint, log.ZapLoggerFactory(logger))(testHandler)
 
 	b.ReportAllocs()
 	b.ResetTimer()

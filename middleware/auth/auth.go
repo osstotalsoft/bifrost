@@ -27,6 +27,7 @@ type AuthorizationOptions struct {
 
 //AuthorizationEndpointOptions are the options configured for each endpoint
 type AuthorizationEndpointOptions struct {
+	Disabled          bool              `mapstructure:"disabled"`
 	ClaimsRequirement map[string]string `mapstructure:"claims_requirement"`
 	AllowedScopes     []string          `mapstructure:"allowed_scopes"`
 }
@@ -51,7 +52,7 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 		return func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				logger := loggerFactory(request.Context())
-				if !endpoint.Secured {
+				if !endpoint.Secured || cfg.Disabled {
 					logger.Debug("AuthorizationFilter skipped")
 					next.ServeHTTP(writer, request)
 					return
