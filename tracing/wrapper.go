@@ -11,7 +11,7 @@ import (
 )
 
 //Wrap http.Handler with opentracing
-func StartSpan(inner http.Handler) http.Handler {
+func SpanWrapper(inner http.Handler) http.Handler {
 
 	tracer := opentracing.GlobalTracer()
 
@@ -23,7 +23,7 @@ func StartSpan(inner http.Handler) http.Handler {
 	}))
 }
 
-func MiddlewareStartSpan(operation string) func(inner middleware.Func) middleware.Func {
+func MiddlewareSpanWrapper(operation string) func(inner middleware.Func) middleware.Func {
 	return func(inner middleware.Func) middleware.Func {
 		return func(endpoint abstraction.Endpoint, loggerFactory log.Factory) func(http.Handler) http.Handler {
 			return func(next http.Handler) http.Handler {
@@ -37,7 +37,7 @@ func MiddlewareStartSpan(operation string) func(inner middleware.Func) middlewar
 	}
 }
 
-func HandlerStartSpan(operation string) func(inner handler.Func) handler.Func {
+func HandlerSpanWrapper(operation string) func(inner handler.Func) handler.Func {
 	return func(inner handler.Func) handler.Func {
 		return func(endpoint abstraction.Endpoint, loggerFactory log.Factory) http.Handler {
 			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

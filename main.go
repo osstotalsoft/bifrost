@@ -56,16 +56,16 @@ func main() {
 	gateMiddlewareFunc := gateway.UseMiddleware(gate)
 
 	gateMiddlewareFunc(cors.CORSFilterCode, middleware.Compose(
-		tracing.MiddlewareStartSpan("CORS Filter"),
+		tracing.MiddlewareSpanWrapper("CORS Filter"),
 	)(cors.CORSFilter("*")))
 
 	gateMiddlewareFunc(auth.AuthorizationFilterCode, middleware.Compose(
-		tracing.MiddlewareStartSpan("Authorization Filter"),
+		tracing.MiddlewareSpanWrapper("Authorization Filter"),
 	)(auth.AuthorizationFilter(getIdentityServerConfig(zlogger))))
 
-	registerHandlerFunc(handler.EventPublisherHandlerType, handler.Compose(tracing.HandlerStartSpan("Nats Handler"))(natsHandler))
+	registerHandlerFunc(handler.EventPublisherHandlerType, handler.Compose(tracing.HandlerSpanWrapper("Nats Handler"))(natsHandler))
 	registerHandlerFunc(handler.ReverseProxyHandlerType, handler.Compose(
-		tracing.HandlerStartSpan("Reverse Proxy Handler"),
+		tracing.HandlerSpanWrapper("Reverse Proxy Handler"),
 	)(reverseproxy.NewReverseProxy(tracing.NewRoundTripperWithOpenTrancing())))
 
 	addRouteFunc := r.AddRoute(dynRouter)
@@ -81,7 +81,7 @@ func main() {
 
 	err := gateway.ListenAndServe(gate, httputils.Compose(
 		httputils.RecoveryHandler(loggerFactory),
-		tracing.StartSpan,
+		tracing.SpanWrapper,
 	)(r.GetHandler(dynRouter)))
 
 	if err != nil {
