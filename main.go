@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/opentracing/opentracing-go"
-	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/gateway"
 	"github.com/osstotalsoft/bifrost/handler"
 	"github.com/osstotalsoft/bifrost/handler/nats"
@@ -33,22 +32,23 @@ func main() {
 	//https://github.com/golang/go/issues/16012
 	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
-	level, logger, _ := getZapLogger()
-	defer logger.Sync()
+	level, zlogger, _ := getZapLogger()
+	defer zlogger.Sync()
 
-	cfg := getConfig(logger)
+	cfg := getConfig(zlogger)
 	changeLogLevel(level, cfg.LogLevel)
 
-	loggerFactory := tracing.SpanLoggerFactory(logger.With(zap.String("service", "api gateway")))
+	loggerFactory := tracing.SpanLoggerFactory(zlogger.With(zap.String("service", "api gateway")))
+	logger := loggerFactory(nil)
 
-	_, closer := setupJaeger(logger)
+	_, closer := setupJaeger(zlogger)
 	defer closer.Close()
 
 	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress, loggerFactory)
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, loggerFactory)
 	//registry := in_memory_registry.NewInMemoryStore()
 
-	natsHandler, closeNatsConnection := nats.NewNatsPublisher(getNatsHandlerConfig(logger), nats.TransformMessage, nats.BuildResponse, loggerFactory)
+	natsHandler, closeNatsConnection := nats.NewNatsPublisher(getNatsHandlerConfig(zlogger), nats.TransformMessage, nats.BuildResponse, logger)
 	defer closeNatsConnection()
 
 	gate := gateway.NewGateway(cfg, loggerFactory)
@@ -61,12 +61,12 @@ func main() {
 
 	gateMiddlewareFunc(auth.AuthorizationFilterCode, middleware.Compose(
 		tracing.MiddlewareStartSpan("Authorization Filter"),
-	)(auth.AuthorizationFilter(getIdentityServerConfig(logger), loggerFactory)))
+	)(auth.AuthorizationFilter(getIdentityServerConfig(zlogger))))
 
 	registerHandlerFunc(handler.EventPublisherHandlerType, handler.Compose(tracing.HandlerStartSpan("Nats Handler"))(natsHandler))
 	registerHandlerFunc(handler.ReverseProxyHandlerType, handler.Compose(
 		tracing.HandlerStartSpan("Reverse Proxy Handler"),
-	)(reverseproxy.NewReverseProxy(tracing.NewRoundTripperWithOpenTrancing(), loggerFactory)))
+	)(reverseproxy.NewReverseProxy(tracing.NewRoundTripperWithOpenTrancing())))
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
@@ -110,7 +110,7 @@ func changeLogLevel(oldLevel zap.AtomicLevel, newLevel string) {
 	return
 }
 
-func getConfig(logger *zap.Logger) *config.Config {
+func getConfig(logger *zap.Logger) *gateway.Config {
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	viper.SetConfigType("json")
@@ -121,7 +121,7 @@ func getConfig(logger *zap.Logger) *config.Config {
 		logger.Panic("unable to read configuration file", zap.Error(err))
 	}
 
-	var cfg = new(config.Config)
+	var cfg = new(gateway.Config)
 	err = viper.Unmarshal(cfg)
 	if err != nil {
 		logger.Panic("unable to decode into struct", zap.Error(err))

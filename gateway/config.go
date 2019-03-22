@@ -1,4 +1,4 @@
-package config
+package gateway
 
 //Config is an object loaded from config.json
 type Config struct {

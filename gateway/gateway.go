@@ -3,7 +3,6 @@ package gateway
 import (
 	"fmt"
 	"github.com/osstotalsoft/bifrost/abstraction"
-	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/handler"
 	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/bifrost/middleware"
@@ -20,7 +19,7 @@ const DefaultHandlerType = handler.ReverseProxyHandlerType
 
 //Gateway is a http.Handler able to route request to different handlers
 type Gateway struct {
-	config                *config.Config
+	config                *Config
 	endPointToRouteMapper sync.Map
 	middlewares           []middlewareTuple
 	handlers              map[string]handler.Func
@@ -33,7 +32,7 @@ type middlewareTuple struct {
 }
 
 //NewGateway is the Gateway constructor
-func NewGateway(config *config.Config, loggerFactory log.Factory) *Gateway {
+func NewGateway(config *Config, loggerFactory log.Factory) *Gateway {
 	if config == nil {
 		loggerFactory(nil).Info("Gateway: Must provide a configuration file")
 	}
@@ -122,7 +121,7 @@ func removeRoutes(gate *Gateway, oldService servicediscovery.Service, removeRout
 	})
 }
 
-func createEndpoints(config *config.Config, service servicediscovery.Service) []abstraction.Endpoint {
+func createEndpoints(config *Config, service servicediscovery.Service) []abstraction.Endpoint {
 	configEndpoints := findConfigEndpoints(config.Endpoints, service.Resource)
 	var endPoints []abstraction.Endpoint
 
@@ -168,8 +167,8 @@ func createEndpoints(config *config.Config, service servicediscovery.Service) []
 	return endPoints
 }
 
-func findConfigEndpoints(endpoints []config.EndpointConfig, serviceName string) []config.EndpointConfig {
-	var result []config.EndpointConfig //endpoints[:0]
+func findConfigEndpoints(endpoints []EndpointConfig, serviceName string) []EndpointConfig {
+	var result []EndpointConfig //endpoints[:0]
 	for _, endp := range endpoints {
 		if endp.ServiceName == serviceName {
 			result = append(result, endp)
@@ -196,10 +195,10 @@ func getEndpointHandler(gate *Gateway, endPoint abstraction.Endpoint) http.Handl
 		return nil
 	}
 
-	endpointHandler := handlerFunc(endPoint)
+	endpointHandler := handlerFunc(endPoint, gate.loggerFactory)
 
 	for i := len(gate.middlewares) - 1; i >= 0; i-- {
-		endpointHandler = gate.middlewares[i].middleware(endPoint)(endpointHandler)
+		endpointHandler = gate.middlewares[i].middleware(endPoint, gate.loggerFactory)(endpointHandler)
 	}
 
 	return endpointHandler

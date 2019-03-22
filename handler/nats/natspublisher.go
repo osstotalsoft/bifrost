@@ -44,15 +44,15 @@ type BuildResponseFunc func(messageContext map[string]interface{}, requestContex
 //NewNatsPublisher creates an instance of the NATS publisher handler.
 // It transforms the received HTTP request using the transformMessageFunc into a message, publishes the message to NATS and
 // returns the http response built using buildResponseFunc
-func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, buildResponseFunc BuildResponseFunc, loggerFactory log.Factory) (handler.Func, CloseConnectionFunc) {
+func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, buildResponseFunc BuildResponseFunc, logger log.Logger) (handler.Func, CloseConnectionFunc) {
 
-	natsConnection, closeConnectionFunc, err := connect(config.NatsUrl, config.ClientId, config.Cluster, loggerFactory(nil))
+	natsConnection, closeConnectionFunc, err := connect(config.NatsUrl, config.ClientId, config.Cluster, logger)
 	if err != nil {
-		loggerFactory(nil).Error("cannot connect", zap.Error(err))
+		logger.Error("cannot connect", zap.Error(err))
 		return nil, closeConnectionFunc
 	}
 
-	handlerFunc := func(endpoint abstraction.Endpoint) http.Handler {
+	handlerFunc := func(endpoint abstraction.Endpoint, loggerFactory log.Factory) http.Handler {
 		var cfg EndpointConfig
 
 		_ = mapstructure.Decode(endpoint.HandlerConfig, &cfg)

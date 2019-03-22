@@ -35,7 +35,7 @@ func (sl spanLogger) Info(msg string, fields ...zapcore.Field) {
 
 func (sl spanLogger) Error(msg string, fields ...zapcore.Field) {
 	sl.logToSpan("error", msg, fields...)
-	tag.Error.Set(sl.span, true)
+	//tag.Error.Set(sl.span, true)
 	sl.logger.Error(msg, fields...)
 }
 

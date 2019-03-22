@@ -92,7 +92,7 @@
     }
   },
   "opentracing": {
-    "enabled": true,
+    "enabled": false,
     "agent": "kube-worker1:31457"
   }
 }

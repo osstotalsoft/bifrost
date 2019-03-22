@@ -33,8 +33,8 @@ type AuthorizationEndpointOptions struct {
 
 //AuthorizationFilter is a middleware that handles authorization using
 //an OpendID Connect server
-func AuthorizationFilter(opts AuthorizationOptions, loggerFactory log.Factory) middleware.Func {
-	return func(endpoint abstraction.Endpoint) func(http.Handler) http.Handler {
+func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
+	return func(endpoint abstraction.Endpoint, loggerFactory log.Factory) func(http.Handler) http.Handler {
 		cfg := AuthorizationEndpointOptions{}
 		if fl, ok := endpoint.Filters[AuthorizationFilterCode]; ok {
 			err := mapstructure.Decode(fl, &cfg)

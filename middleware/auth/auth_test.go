@@ -64,7 +64,7 @@ func TestAuthorizationFilter(t *testing.T) {
 	tokenString, _ := token.SignedString(privateKey)
 
 	logger, _ := zap.NewDevelopment()
-	filter := AuthorizationFilter(intentityConfig, log.ZapLoggerFactory(logger))(testEndPoint)
+	filter := AuthorizationFilter(intentityConfig)(testEndPoint, log.ZapLoggerFactory(logger))
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "OK")
 	})
@@ -88,7 +88,7 @@ func BenchmarkAuthorizationFilter(b *testing.B) {
 	tokenString, _ := token.SignedString(privateKey)
 
 	logger, _ := zap.NewDevelopment()
-	filter := AuthorizationFilter(intentityConfig, log.ZapLoggerFactory(logger))(testEndPoint)
+	filter := AuthorizationFilter(intentityConfig)(testEndPoint, log.ZapLoggerFactory(logger))
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "OK")
 	})

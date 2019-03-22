@@ -1,17 +1,12 @@
 package main
 
 import (
-	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/gateway"
 	"github.com/osstotalsoft/bifrost/handler"
 	"github.com/osstotalsoft/bifrost/handler/reverseproxy"
-	"github.com/osstotalsoft/bifrost/httputils"
 	"github.com/osstotalsoft/bifrost/log"
-	"github.com/osstotalsoft/bifrost/middleware"
-	"github.com/osstotalsoft/bifrost/middleware/cors"
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
-	"github.com/osstotalsoft/bifrost/tracing"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
@@ -28,10 +23,10 @@ type mainTest struct {
 }
 
 var (
-	testConfig2 = config.Config{
+	testConfig2 = gateway.Config{
 		DownstreamPathPrefix: "",
 		UpstreamPathPrefix:   "/api",
-		Endpoints: []config.EndpointConfig{
+		Endpoints: []gateway.EndpointConfig{
 			{
 				UpstreamPathPrefix:   "/api/v1/users",
 				UpstreamPath:         "",
@@ -167,7 +162,7 @@ func TestGatewayReverseProxy(t *testing.T) {
 
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, factory)
 	gate := gateway.NewGateway(&testConfig2, factory)
-	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport, factory))
+	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport))
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 
@@ -230,40 +225,9 @@ func BenchmarkGatewayReverseProxy(b *testing.B) {
 	factory := log.ZapLoggerFactory(zap.NewNop())
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, factory)
 	gate := gateway.NewGateway(&testConfig2, factory)
-	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport, factory))
+	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport))
 
 	gateHandler := r.GetHandler(dynRouter)
-
-	for _, service := range serviceList {
-		gateway.AddService(gate)(r.AddRoute(dynRouter))(*service)
-	}
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/offers2/add_offer/555", nil)
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		gateHandler.ServeHTTP(w, req)
-		w.Result()
-	}
-}
-
-func BenchmarkGateway(b *testing.B) {
-	backendServer := startBackend()
-	defer backendServer.Close()
-
-	factory := log.ZapLoggerFactory(zap.NewNop())
-	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, factory)
-	gate := gateway.NewGateway(&testConfig2, factory)
-
-	gateway.UseMiddleware(gate)(cors.CORSFilterCode, middleware.Compose(
-		tracing.MiddlewareStartSpan("CORS Filter"),
-	)(cors.CORSFilter("*")))
-
-	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport, factory))
-	gateHandler := httputils.RecoveryHandler(factory)(r.GetHandler(dynRouter))
 
 	for _, service := range serviceList {
 		gateway.AddService(gate)(r.AddRoute(dynRouter))(*service)

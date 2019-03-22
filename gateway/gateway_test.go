@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"github.com/osstotalsoft/bifrost/abstraction"
-	"github.com/osstotalsoft/bifrost/config"
 	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"go.uber.org/zap"
@@ -19,10 +18,10 @@ type gateTest struct {
 }
 
 var (
-	testConfig1 = config.Config{
+	testConfig1 = Config{
 		DownstreamPathPrefix: "",
 		UpstreamPathPrefix:   "/api",
-		Endpoints: []config.EndpointConfig{
+		Endpoints: []EndpointConfig{
 			{
 				UpstreamPathPrefix:   "/api/v1",
 				DownstreamPathPrefix: "/users",
@@ -139,7 +138,7 @@ func TestAddService(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	factory := log.ZapLoggerFactory(logger)
 	gate := NewGateway(&testConfig1, factory)
-	RegisterHandler(gate)(DefaultHandlerType, func(endpoint abstraction.Endpoint) http.Handler {
+	RegisterHandler(gate)(DefaultHandlerType, func(endpoint abstraction.Endpoint, loggerFactory log.Factory) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		})
 	})

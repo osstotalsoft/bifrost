@@ -2,6 +2,8 @@ package cors
 
 import (
 	"github.com/osstotalsoft/bifrost/abstraction"
+	"github.com/osstotalsoft/bifrost/log"
+	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -33,8 +35,8 @@ func TestCORSFilter(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-
-	CORSFilter("http://www.example.com/")(endpoint)(testHandler).ServeHTTP(rr, r)
+	logger, _ := zap.NewDevelopment()
+	CORSFilter("http://www.example.com/")(endpoint, log.ZapLoggerFactory(logger))(testHandler).ServeHTTP(rr, r)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
@@ -60,7 +62,8 @@ func BenchmarkCORSPreflight(b *testing.B) {
 	rr := httptest.NewRecorder()
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	h := CORSFilter("*")(endpoint)(testHandler)
+	logger, _ := zap.NewDevelopment()
+	h := CORSFilter("*")(endpoint, log.ZapLoggerFactory(logger))(testHandler)
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -80,7 +83,8 @@ func BenchmarkCORSActualRequest(b *testing.B) {
 	rr := httptest.NewRecorder()
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-	h := CORSFilter("http://www.example.com/")(endpoint)(testHandler)
+	logger, _ := zap.NewDevelopment()
+	h := CORSFilter("http://www.example.com/")(endpoint, log.ZapLoggerFactory(logger))(testHandler)
 
 	b.ReportAllocs()
 	b.ResetTimer()

@@ -15,8 +15,8 @@ import (
 )
 
 //NewReverseProxy create a new reverproxy http.Handler for each endpoint
-func NewReverseProxy(transport http.RoundTripper, loggerFactory log.Factory) handler.Func {
-	return func(endPoint abstraction.Endpoint) http.Handler {
+func NewReverseProxy(transport http.RoundTripper) handler.Func {
+	return func(endPoint abstraction.Endpoint, loggerFactory log.Factory) http.Handler {
 		//https://github.com/golang/go/issues/16012
 		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 

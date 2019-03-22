@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/osstotalsoft/bifrost/abstraction"
+	"github.com/osstotalsoft/bifrost/log"
 	"net/http"
 )
 
@@ -13,7 +14,7 @@ const ReverseProxyHandlerType = "reverseproxy"
 const EventPublisherHandlerType = "event"
 
 //Func is a signature that each handler must implement
-type Func func(endpoint abstraction.Endpoint) http.Handler
+type Func func(endpoint abstraction.Endpoint, loggerFactory log.Factory) http.Handler
 
 //Compose Funcs
 func Compose(funcs ...func(f Func) Func) func(f Func) Func {
