@@ -20,6 +20,7 @@ var testEndPoint = abstraction.Endpoint{
 			ClaimsRequirement: map[string]string{
 				"client_id": "CharismaFinancialServices",
 			},
+			Audience:      "LSNG.Api",
 			AllowedScopes: []string{"LSNG.Api.read_only", "Notifier.Api.write"},
 		},
 	},
@@ -27,7 +28,6 @@ var testEndPoint = abstraction.Endpoint{
 
 var intentityConfig = AuthorizationOptions{
 	Authority: "http://kube-worker1:30692",
-	Audience:  "LSNG.Api",
 }
 
 var claims = jwt.MapClaims{

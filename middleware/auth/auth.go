@@ -20,13 +20,14 @@ const AuthorizationFilterCode = "auth"
 
 //AuthorizationOptions are the options configured for all endpoints
 type AuthorizationOptions struct {
-	Authority      string `mapstructure:"authority"`
-	Audience       string `mapstructure:"audience"`
+	Authority string `mapstructure:"authority"`
+
 	SecretProvider oidc.SecretProvider
 }
 
 //AuthorizationEndpointOptions are the options configured for each endpoint
 type AuthorizationEndpointOptions struct {
+	Audience          string            `mapstructure:"audience"`
 	Disabled          bool              `mapstructure:"disabled"`
 	ClaimsRequirement map[string]string `mapstructure:"claims_requirement"`
 	AllowedScopes     []string          `mapstructure:"allowed_scopes"`
@@ -47,7 +48,12 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 		if opts.SecretProvider == nil {
 			opts.SecretProvider = oidc.NewOidcSecretProvider(discovery.NewClient(discovery.Options{opts.Authority}))
 		}
-		validator := oidc.NewJWTValidator(jwtRequest.OAuth2Extractor, opts.SecretProvider, opts.Audience, opts.Authority)
+		audience := endpoint.OidcAudience
+		if cfg.Audience != "" {
+			audience = cfg.Audience
+		}
+
+		validator := oidc.NewJWTValidator(jwtRequest.OAuth2Extractor, opts.SecretProvider, audience, opts.Authority)
 
 		return func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

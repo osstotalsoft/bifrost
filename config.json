@@ -92,8 +92,7 @@
   },
   "filters": {
     "auth": {
-      "authority": "https://leasing-sso.appservice.online",
-      "audience": "LSNG.Api"
+      "authority": "https://leasing-sso.appservice.online"
     },
     "cors": {
       "allowed_origins": [

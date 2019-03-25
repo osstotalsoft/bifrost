@@ -4,6 +4,7 @@ package abstraction
 type Endpoint struct {
 	UpstreamPath         string
 	Secured              bool
+	OidcAudience         string
 	UpstreamPathPrefix   string
 	UpstreamURL          string
 	DownstreamPath       string

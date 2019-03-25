@@ -1,7 +1,6 @@
 package kubernetes
 
 import (
-	"fmt"
 	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"go.uber.org/zap"
@@ -31,12 +30,15 @@ type Provider struct {
 }
 
 const resourceLabelName = "api-gateway/resource"
+const audienceLabelName = "api-gateway/oidc.audience"
 const securedLabelName = "api-gateway/secured"
 
 //NewKubernetesServiceDiscoveryProvider creates a new kube provider
 func NewKubernetesServiceDiscoveryProvider(inCluster bool, overrideServiceAddress string, loggerFactory log.Factory) *Provider {
 
 	logger := loggerFactory(nil)
+	logger = logger.With(zap.String("component", "kubernetes_service_provider"))
+
 	var config *rest.Config
 	var err error
 
@@ -47,16 +49,16 @@ func NewKubernetesServiceDiscoveryProvider(inCluster bool, overrideServiceAddres
 	}
 
 	if err != nil {
-		logger.Panic("Kubernetes: cannot connect to discovery provider", zap.Error(err))
+		logger.Panic("KubernetesProvider: cannot connect to discovery provider", zap.Error(err))
 	}
 
 	if inCluster && overrideServiceAddress != "" {
-		logger.Panic("Kubernetes: You cannot override service address while in cluster mode", zap.Error(err))
+		logger.Panic("KubernetesProvider: You cannot override service address while in cluster mode", zap.Error(err))
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		logger.Panic("Kubernetes: cannot connect to discovery provider", zap.Error(err))
+		logger.Panic("KubernetesProvider: cannot connect to discovery provider", zap.Error(err))
 	}
 
 	return &Provider{
@@ -96,7 +98,7 @@ func updateFunc(provider *Provider) func(oldObj, newObj interface{}) {
 	return func(oldObj, newObj interface{}) {
 		oldSrv := oldObj.(*corev1.Service)
 		newSrv := newObj.(*corev1.Service)
-		provider.logger.Info(fmt.Sprintf("KubernetesProvider: Service updated old: %s, new: %s", oldSrv.String(), newSrv.String()))
+		provider.logger.Info("KubernetesProvider: service updated", zap.Any("old_service", oldSrv), zap.Any("new_service", newSrv))
 
 		callUpdateSubscribers(provider.onUpdateServiceHandlers,
 			mapToService(oldSrv, provider.overrideServiceAddress),
@@ -107,7 +109,7 @@ func updateFunc(provider *Provider) func(oldObj, newObj interface{}) {
 func deleteFunc(provider *Provider) func(obj interface{}) {
 	return func(obj interface{}) {
 		srv := obj.(*corev1.Service)
-		provider.logger.Info("KubernetesProvider: Service deleted: %s" + srv.String())
+		provider.logger.Info("KubernetesProvider: service deleted", zap.Any("service", srv))
 
 		callSubscribers(provider.onRemoveServiceHandlers, mapToService(srv, provider.overrideServiceAddress))
 	}
@@ -116,8 +118,7 @@ func deleteFunc(provider *Provider) func(obj interface{}) {
 func addFunc(provider *Provider) func(obj interface{}) {
 	return func(obj interface{}) {
 		srv := obj.(*corev1.Service)
-		provider.logger.Info("KubernetesProvider:  New service : " + srv.String())
-
+		provider.logger.Info("KubernetesProvider: service deleted", zap.Any("service", srv))
 		callSubscribers(provider.onAddServiceHandlers, mapToService(srv, provider.overrideServiceAddress))
 	}
 }
@@ -130,13 +131,14 @@ func mapToService(srv *corev1.Service, overrideServiceAddress string) servicedis
 		address = overrideServiceAddress
 	}
 	return servicediscovery.Service{
-		Address:   address,
-		Version:   srv.ResourceVersion,
-		UID:       string(srv.UID),
-		Name:      srv.Name,
-		Resource:  srv.Labels[resourceLabelName], // "api1",
-		Secured:   secured,
-		Namespace: srv.Namespace, // "gateway",
+		Address:      address,
+		Version:      srv.ResourceVersion,
+		UID:          string(srv.UID),
+		Name:         srv.Name,
+		Resource:     srv.Labels[resourceLabelName],
+		OidcAudience: srv.Labels[audienceLabelName],
+		Secured:      secured,
+		Namespace:    srv.Namespace,
 	}
 }
 

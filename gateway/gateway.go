@@ -34,7 +34,7 @@ type middlewareTuple struct {
 //NewGateway is the Gateway constructor
 func NewGateway(config *Config, loggerFactory log.Factory) *Gateway {
 	if config == nil {
-		loggerFactory(nil).Info("Gateway: Must provide a configuration file")
+		loggerFactory(nil).Error("Gateway: Must provide a configuration file")
 	}
 	return &Gateway{
 		config:        config,
@@ -100,6 +100,9 @@ func internalAddService(gate *Gateway, service servicediscovery.Service, addRout
 	var routes []string
 
 	endpoints := createEndpoints(gate.config, service)
+
+	gate.loggerFactory(nil).Debug("Gateway: created enpoints for service", zap.Any("service", service), zap.Any("endpoints", endpoints))
+
 	for _, endp := range endpoints {
 		routeId, _ := addRouteFunc(endp.DownstreamPath, endp.DownstreamPathPrefix, endp.Methods, getEndpointHandler(gate, endp))
 		routes = append(routes, routeId)
@@ -136,6 +139,10 @@ func createEndpoints(config *Config, service servicediscovery.Service) []abstrac
 		}
 
 		endPoint.Secured = service.Secured
+		endPoint.OidcAudience = service.OidcAudience
+		if service.OidcAudience == "" {
+			endPoint.OidcAudience = service.Name
+		}
 		endPoint.DownstreamPathPrefix = endp.DownstreamPathPrefix
 		if endPoint.DownstreamPathPrefix == "" {
 			endPoint.DownstreamPathPrefix = strutils.SingleJoiningSlash(config.DownstreamPathPrefix, service.Resource)
@@ -157,6 +164,10 @@ func createEndpoints(config *Config, service servicediscovery.Service) []abstrac
 		var endPoint abstraction.Endpoint
 
 		endPoint.Secured = service.Secured
+		endPoint.OidcAudience = service.OidcAudience
+		if service.OidcAudience == "" {
+			endPoint.OidcAudience = service.Name
+		}
 		endPoint.HandlerType = DefaultHandlerType
 		endPoint.DownstreamPathPrefix = strutils.SingleJoiningSlash(config.DownstreamPathPrefix, service.Resource)
 		endPoint.UpstreamURL = strutils.SingleJoiningSlash(service.Address, config.UpstreamPathPrefix)

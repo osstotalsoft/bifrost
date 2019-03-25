@@ -97,7 +97,7 @@ func main() {
 
 func getZapLogger() (zap.AtomicLevel, *zap.Logger, error) {
 	cfg := zap.NewDevelopmentConfig()
-	cfg.Encoding = "json"
+	//cfg.Encoding = "json"
 	cfg.DisableCaller = true
 	l, e := cfg.Build()
 	return cfg.Level, l, e
