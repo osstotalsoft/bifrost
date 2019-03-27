@@ -118,7 +118,7 @@ func deleteFunc(provider *Provider) func(obj interface{}) {
 func addFunc(provider *Provider) func(obj interface{}) {
 	return func(obj interface{}) {
 		srv := obj.(*corev1.Service)
-		provider.logger.Info("KubernetesProvider: service deleted", zap.Any("service", srv))
+		provider.logger.Info("KubernetesProvider: service added", zap.Any("service", srv))
 		callSubscribers(provider.onAddServiceHandlers, mapToService(srv, provider.overrideServiceAddress))
 	}
 }

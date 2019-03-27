@@ -20,8 +20,7 @@ const AuthorizationFilterCode = "auth"
 
 //AuthorizationOptions are the options configured for all endpoints
 type AuthorizationOptions struct {
-	Authority string `mapstructure:"authority"`
-
+	Authority      string `mapstructure:"authority"`
 	SecretProvider oidc.SecretProvider
 }
 

@@ -31,7 +31,7 @@ type EndpointConfig struct {
 }
 
 //CloseConnectionFunc is to be called to close the NATS connection
-type CloseConnectionFunc func()
+type CloseConnectionFunc func() error
 
 //TransformMessageFunc transforms a message received in the HTTP request to a format required by the NBB infrastructure.
 //It envelopes the message adding the required metadata such as UserId, CorrelationId, MessageId, PublishTime, Source, etc.
@@ -44,12 +44,12 @@ type BuildResponseFunc func(messageContext map[string]interface{}, requestContex
 //NewNatsPublisher creates an instance of the NATS publisher handler.
 // It transforms the received HTTP request using the transformMessageFunc into a message, publishes the message to NATS and
 // returns the http response built using buildResponseFunc
-func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, buildResponseFunc BuildResponseFunc, logger log.Logger) (handler.Func, CloseConnectionFunc) {
+func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, buildResponseFunc BuildResponseFunc, logger log.Logger) (handler.Func, CloseConnectionFunc, error) {
 
 	natsConnection, closeConnectionFunc, err := connect(config.NatsUrl, config.ClientId, config.Cluster, logger)
 	if err != nil {
-		logger.Error("cannot connect", zap.Error(err))
-		return nil, closeConnectionFunc
+		//logger.Error("cannot connect", zap.Error(err))
+		return nil, closeConnectionFunc, err
 	}
 
 	handlerFunc := func(endpoint abstraction.Endpoint, loggerFactory log.Factory) http.Handler {
@@ -101,21 +101,24 @@ func NewNatsPublisher(config Config, transformMessageFunc TransformMessageFunc, 
 			}
 		})
 	}
-	return handlerFunc, closeConnectionFunc
+	return handlerFunc, closeConnectionFunc, nil
 }
 
 //connect opens a streaming NATS connection
 func connect(natsUrl, clientId, clusterId string, logger log.Logger) (stan.Conn, CloseConnectionFunc, error) {
 	nc, err := stan.Connect(clusterId, clientId+uuid.NewV4().String(), stan.NatsURL(natsUrl))
 	if err != nil {
-		logger.Error("cannot connect to nats server", zap.Error(err))
-		return nc, func() {}, err
+		//logger.Error("cannot connect to nats server", zap.Error(err))
+		return nc, nil, err
 	}
 
-	return nc, func() {
+	return nc, func() error {
+		logger.Info("nats connection closing ..", zap.Error(err))
+
 		err := nc.Close()
 		if err != nil {
 			logger.Error("cannot close nats connection", zap.Error(err))
 		}
+		return err
 	}, err
 }

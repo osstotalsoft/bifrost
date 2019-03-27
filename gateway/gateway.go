@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/handler"
@@ -24,6 +25,7 @@ type Gateway struct {
 	middlewares           []middlewareTuple
 	handlers              map[string]handler.Func
 	loggerFactory         log.Factory
+	closer                func() error
 }
 
 type middlewareTuple struct {
@@ -100,15 +102,12 @@ func internalAddService(gate *Gateway, service servicediscovery.Service, addRout
 	var routes []string
 
 	endpoints := createEndpoints(gate.config, service)
-
 	gate.loggerFactory(nil).Debug("Gateway: created enpoints for service", zap.Any("service", service), zap.Any("endpoints", endpoints))
-
 	for _, endp := range endpoints {
 		routeId, _ := addRouteFunc(endp.DownstreamPath, endp.DownstreamPathPrefix, endp.Methods, getEndpointHandler(gate, endp))
 		routes = append(routes, routeId)
 	}
 	gate.endPointToRouteMapper.Store(service.UID, routes)
-
 	return endpoints
 }
 
@@ -191,11 +190,31 @@ func findConfigEndpoints(endpoints []EndpointConfig, serviceName string) []Endpo
 //ListenAndServe start the gateway server
 func ListenAndServe(gate *Gateway, handler http.Handler) error {
 	name := gate.config.Name
+	server := &http.Server{
+		Addr: ":" + strconv.Itoa(gate.config.Port),
+		Handler: http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			writer.Header().Set("X-Gateway", name)
+			handler.ServeHTTP(writer, request)
+		})}
 
-	return http.ListenAndServe(":"+strconv.Itoa(gate.config.Port), http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("X-Gateway", name)
-		handler.ServeHTTP(writer, request)
-	}))
+	idleConnsClosed := make(chan struct{})
+
+	gate.closer = func() error {
+		err := server.Shutdown(context.Background())
+		close(idleConnsClosed)
+		return err
+	}
+
+	err := server.ListenAndServe()
+	if err != http.ErrServerClosed {
+		return err
+	}
+	<-idleConnsClosed
+	return nil
+}
+
+func Shutdown(gate *Gateway) error {
+	return gate.closer()
 }
 
 func getEndpointHandler(gate *Gateway, endPoint abstraction.Endpoint) http.Handler {
@@ -207,10 +226,8 @@ func getEndpointHandler(gate *Gateway, endPoint abstraction.Endpoint) http.Handl
 	}
 
 	endpointHandler := handlerFunc(endPoint, gate.loggerFactory)
-
 	for i := len(gate.middlewares) - 1; i >= 0; i-- {
 		endpointHandler = gate.middlewares[i].middleware(endPoint, gate.loggerFactory)(endpointHandler)
 	}
-
 	return endpointHandler
 }

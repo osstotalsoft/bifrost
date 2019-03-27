@@ -8,6 +8,7 @@ import (
 	"github.com/osstotalsoft/bifrost/handler/nats"
 	"github.com/osstotalsoft/bifrost/handler/reverseproxy"
 	"github.com/osstotalsoft/bifrost/httputils"
+	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/bifrost/middleware"
 	"github.com/osstotalsoft/bifrost/middleware/auth"
 	"github.com/osstotalsoft/bifrost/middleware/cors"
@@ -23,12 +24,12 @@ import (
 	"go.uber.org/zap/zapcore"
 	"io"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
-	//var signalsChannel = make(chan os.Signal, 1)
-	//signal.Notify(signalsChannel, os.Interrupt, syscall.SIGTERM)
-
 	//https://github.com/golang/go/issues/16012
 	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
@@ -41,14 +42,17 @@ func main() {
 	loggerFactory := tracing.SpanLoggerFactory(zlogger.With(zap.String("service", "api gateway")))
 	logger := loggerFactory(nil)
 
-	_, closer := setupJaeger(zlogger)
+	closer := setupJaeger(zlogger)
 	defer closer.Close()
 
 	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress, loggerFactory)
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, loggerFactory)
 	//registry := in_memory_registry.NewInMemoryStore()
 
-	natsHandler, closeNatsConnection := nats.NewNatsPublisher(getNatsHandlerConfig(zlogger), nats.TransformMessage, nats.BuildResponse, logger)
+	natsHandler, closeNatsConnection, err := nats.NewNatsPublisher(getNatsHandlerConfig(zlogger), nats.TransformMessage, nats.BuildResponse, logger)
+	if err != nil {
+		logger.Error("cannot connect to nats server", zap.Error(err))
+	}
 	defer closeNatsConnection()
 
 	gate := gateway.NewGateway(cfg, loggerFactory)
@@ -57,10 +61,7 @@ func main() {
 
 	//gateMiddlewareFunc(ratelimit.RateLimitingFilterCode, ratelimit.RateLimiting(ratelimit.MaxRequestLimit))
 
-	gateMiddlewareFunc(cors.CORSFilterCode, middleware.Compose(
-		tracing.MiddlewareSpanWrapper("CORS Filter"),
-	)(cors.CORSFilter(getCORSConfig(zlogger))))
-
+	gateMiddlewareFunc(cors.CORSFilterCode, middleware.Compose(tracing.MiddlewareSpanWrapper("CORS Filter"))(cors.CORSFilter(getCORSConfig(zlogger))))
 	gateMiddlewareFunc(auth.AuthorizationFilterCode, middleware.Compose(
 		tracing.MiddlewareSpanWrapper("Authorization Filter"),
 	)(auth.AuthorizationFilter(getIdentityServerConfig(zlogger))))
@@ -80,8 +81,11 @@ func main() {
 		kubernetes.SubscribeOnUpdateService(gateway.UpdateService(gate)(addRouteFunc, removeRouteFunc)),
 		kubernetes.Start,
 	)(provider)
+	defer kubernetes.Stop(provider)
 
-	err := gateway.ListenAndServe(gate, httputils.Compose(
+	go Shutdown(logger, gate)
+
+	err = gateway.ListenAndServe(gate, httputils.Compose(
 		httputils.RecoveryHandler(loggerFactory),
 		tracing.SpanWrapper,
 	)(r.GetHandler(dynRouter)))
@@ -89,10 +93,20 @@ func main() {
 	if err != nil {
 		logger.Error("gateway cannot start", zap.Error(err))
 	}
+}
 
-	//log.Info("Shutting down")
-	//kubernetes.Stop(provider)
-	//closeNatsConnection()
+func Shutdown(logger log.Logger, gate *gateway.Gateway) {
+	var signalsChannel = make(chan os.Signal, 1)
+	signal.Notify(signalsChannel, os.Interrupt, syscall.SIGTERM)
+
+	//wait for app closing
+	<-signalsChannel
+	logger.Info("Shutting down")
+
+	err := gateway.Shutdown(gate)
+	if err != nil {
+		logger.Error("error closing gateway", zap.Error(err))
+	}
 }
 
 func getZapLogger() (zap.AtomicLevel, *zap.Logger, error) {
@@ -163,7 +177,7 @@ func getCORSConfig(logger *zap.Logger) cors.Options {
 	return *cfg
 }
 
-func setupJaeger(logger *zap.Logger) (opentracing.Tracer, io.Closer) {
+func setupJaeger(logger *zap.Logger) io.Closer {
 	var cfg = &struct {
 		Enabled bool   `json:"enabled"`
 		Agent   string `json:"agent"`
@@ -199,5 +213,5 @@ func setupJaeger(logger *zap.Logger) (opentracing.Tracer, io.Closer) {
 	// Set the singleton opentracing.Tracer with the Jaeger tracer.
 	opentracing.SetGlobalTracer(tracer)
 
-	return tracer, closer
+	return closer
 }

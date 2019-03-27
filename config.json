@@ -56,6 +56,7 @@
       "upstream_path_prefix": "/api",
       "filters": {
         "auth": {
+          "disabled": true,
           "allowed_scopes": [
             "LSNG.Api.read_only"
           ]
