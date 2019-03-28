@@ -102,7 +102,7 @@ func internalAddService(gate *Gateway, service servicediscovery.Service, addRout
 	var routes []string
 
 	endpoints := createEndpoints(gate.config, service)
-	gate.loggerFactory(nil).Debug("Gateway: created enpoints for service", zap.Any("service", service), zap.Any("endpoints", endpoints))
+	gate.loggerFactory(nil).Info("Gateway: created enpoints for service", zap.Any("service", service), zap.Any("endpoints", endpoints))
 	for _, endp := range endpoints {
 		routeId, _ := addRouteFunc(endp.DownstreamPath, endp.DownstreamPathPrefix, endp.Methods, getEndpointHandler(gate, endp))
 		routes = append(routes, routeId)

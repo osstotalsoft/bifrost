@@ -17,9 +17,9 @@ func SpanWrapper(inner http.Handler) http.Handler {
 
 	//setup opentracing for main handler
 	return nethttp.Middleware(tracer, inner, nethttp.OperationNameFunc(func(r *http.Request) string {
-		return "HTTP " + r.Method + " " + r.URL.String()
+		return "HTTP " + r.Method + ":" + r.URL.Path
 	}), nethttp.MWSpanObserver(func(span opentracing.Span, r *http.Request) {
-		//span.SetTag("http.uri", r.URL.EscapedPath())
+		span.SetTag("http.uri", r.URL.EscapedPath())
 	}))
 }
 

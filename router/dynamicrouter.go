@@ -97,6 +97,6 @@ func RemoveRoute(router *dynamicRouter) func(routeId string) {
 		}
 
 		router.routes.Delete(routeId)
-		router.logger.Debug(fmt.Sprintf("DynamicRouter: Deleted route id: %s; pathPrefix: %s; path %s", route.(Route).UID, route.(Route).PathPrefix, route.(Route).Path))
+		router.logger.Info(fmt.Sprintf("DynamicRouter: Deleted route id: %s; pathPrefix: %s; path %s", route.(Route).UID, route.(Route).PathPrefix, route.(Route).Path))
 	}
 }
