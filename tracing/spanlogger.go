@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+//SpanLoggerFactory is a wrapper over zap.Logger with OpenTracing
 func SpanLoggerFactory(logger *zap.Logger) log.Factory {
 	return func(ctx context.Context) log.Logger {
 		if ctx != nil {

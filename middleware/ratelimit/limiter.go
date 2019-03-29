@@ -15,6 +15,8 @@ const RateLimitingFilterCode = "ratelimit"
 const DefaultGlobalRequestLimit = 5000
 const MaxRequestLimit = 10000
 
+//RateLimiting is a middleware which can limit the number of request / route / second
+//and then return StatusTooManyRequests response if the limit is reached
 func RateLimiting(limit int) middleware.Func {
 	return func(endpoint abstraction.Endpoint, loggerFactory log.Factory) func(http.Handler) http.Handler {
 		limiter := rate.NewLimiter(rate.Limit(limit), limit)

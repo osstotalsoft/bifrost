@@ -93,6 +93,7 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 				ctx := context.WithValue(request.Context(), abstraction.ContextClaimsKey, token.Claims)
 				request = request.WithContext(ctx)
 				next.ServeHTTP(writer, request)
+
 			})
 		}
 	}

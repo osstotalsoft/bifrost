@@ -11,10 +11,12 @@ type roundTripper struct {
 	http.RoundTripper
 }
 
+//NewRoundTripperWithOpenTrancing creates a new roundTripper with OpenTracing
 func NewRoundTripperWithOpenTrancing() *roundTripper {
 	return &roundTripper{RoundTripper: http.DefaultTransport}
 }
 
+//RoundTrip starts a opentracing span and then delegates the request to the actual roundtripper
 func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	sp, _ := opentracing.StartSpanFromContext(req.Context(), "RoundTrip to "+req.URL.String())
 	defer sp.Finish()

@@ -11,7 +11,7 @@ require (
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/protobuf v1.3.1 // indirect
-	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c // indirect
+	github.com/google/btree v1.0.0 // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gorilla/handlers v1.4.0
@@ -33,8 +33,8 @@ require (
 	github.com/nats-io/nats-streaming-server v0.12.2 // indirect
 	github.com/nats-io/nkeys v0.0.2 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
-	github.com/opentracing-contrib/go-stdlib v0.0.0-20190315153516-431a6bc76b48
-	github.com/opentracing/opentracing-go v1.0.2
+	github.com/opentracing-contrib/go-stdlib v0.0.0-20190324214902-3020fec0e66b
+	github.com/opentracing/opentracing-go v1.1.0
 	github.com/osstotalsoft/oidc-jwt-go v0.0.0-20190311080259-5c185ec6f15e
 	github.com/pascaldekloe/goe v0.1.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
@@ -44,13 +44,13 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/viper v1.3.1
 	github.com/uber-go/atomic v1.3.2 // indirect
-	github.com/uber/jaeger-client-go v2.15.1-0.20190312182356-f4d58ba83788+incompatible
+	github.com/uber/jaeger-client-go v2.16.0+incompatible
 	github.com/uber/jaeger-lib v2.0.1-0.20190122222657-d036253de8f5+incompatible
 	go.etcd.io/bbolt v1.3.2 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
-	golang.org/x/net v0.0.0-20190320064053-1272bf9dcd53 // indirect
+	golang.org/x/net v0.0.0-20190328230028-74de082e2cca // indirect
 	golang.org/x/oauth2 v0.0.0-20190319182350-c85d3e98c914 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/inf.v0 v0.9.1 // indirect
