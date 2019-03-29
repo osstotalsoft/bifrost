@@ -49,7 +49,11 @@ func main() {
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, loggerFactory)
 	//registry := in_memory_registry.NewInMemoryStore()
 
-	natsHandler, closeNatsConnection, err := nats.NewNatsPublisher(getNatsHandlerConfig(zlogger), nats.TransformMessage, nats.BuildResponse, logger)
+	natsHandler, closeNatsConnection, err := nats.NewNatsPublisher(getNatsHandlerConfig(zlogger),
+		nats.TransformMessage(nats.NBBTransformMessage),
+		nats.BuildResponse(nats.NBBBuildResponse),
+		nats.Logger(logger),
+	)
 	if err != nil {
 		logger.Error("cannot connect to nats server", zap.Error(err))
 	}
@@ -95,6 +99,7 @@ func main() {
 	}
 }
 
+//Shutdown gateway server and all subscriptions
 func Shutdown(logger log.Logger, gate *gateway.Gateway) {
 	var signalsChannel = make(chan os.Signal, 1)
 	signal.Notify(signalsChannel, os.Interrupt, syscall.SIGTERM)

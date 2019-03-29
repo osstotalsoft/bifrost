@@ -55,3 +55,8 @@ func (l zapLogger) Panic(msg string, fields ...zapcore.Field) {
 func (l zapLogger) With(fields ...zapcore.Field) Logger {
 	return zapLogger{logger: l.logger.With(fields...)}
 }
+
+//NewNop return a no op logger
+func NewNop() Logger {
+	return zapLogger{zap.NewNop()}
+}

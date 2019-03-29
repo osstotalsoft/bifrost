@@ -37,7 +37,7 @@ type CommandResult struct {
 
 //TransformMessage transforms a message received in the HTTP request to a format required by the NBB infrastructure.
 // It envelopes the message adding the required metadata such as UserId, CorrelationId, MessageId, PublishTime, Source, etc.
-func TransformMessage(payloadBytes []byte, messageContext map[string]interface{}, requestContext context.Context) ([]byte, error) {
+func NBBTransformMessage(messageContext messageContext, requestContext context.Context, payloadBytes []byte) ([]byte, error) {
 	claims, err := getClaims(requestContext)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func TransformMessage(payloadBytes []byte, messageContext map[string]interface{}
 		CharismaUserIdKey: charismaUserId,
 		CorrelationIdKey:  correlationId,
 		MessageIdKey:      uuid.NewV4(),
-		SourceKey:         messageContext[SourceKey],
+		SourceKey:         messageContext.Source,
 		PublishTimeKey:    now,
 	}
 	payloadChanges := map[string]interface{}{
@@ -70,21 +70,21 @@ func TransformMessage(payloadBytes []byte, messageContext map[string]interface{}
 		MetadataKey:  map[string]interface{}{CreationDateKey: now},
 	}
 
-	messageContext[CorrelationIdKey] = correlationId
-	messageContext[CommandIdKey] = commandId
+	messageContext.Headers[CorrelationIdKey] = correlationId
+	messageContext.Headers[CommandIdKey] = commandId
 
 	return envelopeMessage(payloadBytes, headers, payloadChanges), nil
 }
 
 //BuildResponse builds the response that is returned by the Gateway after publishing a message
-func BuildResponse(messageContext map[string]interface{}, requestContext context.Context) ([]byte, error) {
+func NBBBuildResponse(messageContext messageContext, requestContext context.Context) ([]byte, error) {
 
-	correlationId, ok := messageContext[CorrelationIdKey].(uuid.UUID)
+	correlationId, ok := messageContext.Headers[CorrelationIdKey].(uuid.UUID)
 	if !ok {
 		return nil, errors.New("correlation id not found in message context")
 	}
 
-	commandId, ok := messageContext[CommandIdKey].(uuid.UUID)
+	commandId, ok := messageContext.Headers[CommandIdKey].(uuid.UUID)
 	if !ok {
 		return nil, errors.New("command id not found in message context")
 	}

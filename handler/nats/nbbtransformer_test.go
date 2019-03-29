@@ -16,7 +16,7 @@ func TestTransformMessage(t *testing.T) {
 		"myField": "myValue",
 	}
 	var payloadBytes, _ = json.Marshal(payload)
-	var messageContext = map[string]interface{}{SourceKey: "src"}
+	var messageContext = messageContext{Source: "src", Headers: map[string]interface{}{}}
 
 	var claimsMap = map[string]interface{}{
 		UserIdClaimKey:     "user1",
@@ -26,7 +26,7 @@ func TestTransformMessage(t *testing.T) {
 	var response Message
 
 	// Act
-	responseBytes, _ := TransformMessage(payloadBytes, messageContext, requestContext)
+	responseBytes, _ := NBBTransformMessage(messageContext, requestContext, payloadBytes)
 
 	// Assert
 	if err := json.Unmarshal(responseBytes, &response); err != nil {
@@ -63,18 +63,18 @@ func TestTransformMessage(t *testing.T) {
 			t.Fatal(CommandIdKey + " not present in the payload")
 		}
 		if metadata, ok := response.Payload[MetadataKey].(map[string]interface{}); !ok {
-			t.Fatal(MetadataKey + " header not present in the payload")
+			t.Error(MetadataKey + " header not present in the payload")
 			if _, ok := metadata[CreationDateKey].(time.Time); !ok {
 				t.Fatal(CreationDateKey + " metadata not present in the message")
 			}
 		}
 	}
 
-	if _, ok := messageContext[CommandIdKey]; !ok {
+	if _, ok := messageContext.Headers[CommandIdKey]; !ok {
 		t.Fatal(CommandIdKey + " not present in the message context")
 	}
 
-	if _, ok := messageContext[CorrelationIdKey]; !ok {
+	if _, ok := messageContext.Headers[CorrelationIdKey]; !ok {
 		t.Fatal(CorrelationIdKey + " not present in the message context")
 	}
 }
@@ -85,15 +85,15 @@ func TestBuildResponse(t *testing.T) {
 	var correlationId = uuid.NewV4()
 	var commandId = uuid.NewV4()
 
-	var messageContext = map[string]interface{}{
+	var messageContext = messageContext{Headers: map[string]interface{}{
 		CorrelationIdKey: correlationId,
 		CommandIdKey:     commandId,
-	}
+	}}
 	var requestContext = context.WithValue(nil, abstraction.ContextClaimsKey, nil)
 	var expectedResponse, _ = json.Marshal(CommandResult{CommandId: commandId, CorrelationId: correlationId})
 
 	// Act
-	resp, _ := BuildResponse(messageContext, requestContext)
+	resp, _ := NBBBuildResponse(messageContext, requestContext)
 
 	// Assert
 	if string(resp) != string(expectedResponse) {
