@@ -21,7 +21,7 @@ type Options struct {
 func CORSFilter(options Options) middleware.Func {
 	return func(endpoint abstraction.Endpoint, loggerFactory log.Factory) func(http.Handler) http.Handler {
 		originis := handlers.AllowedOrigins(options.AllowedOrigins)
-		methods := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
+		methods := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS", "DELETE"})
 		headers := handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Language", "Origin", "X-Requested-With", "Content-Type", "Authorization"})
 
 		return handlers.CORS(originis, methods, headers, handlers.AllowCredentials())
