@@ -48,6 +48,7 @@ func getDirector(targetUrl, targetUrlPath, targetUrlPrefix string, loggerFactory
 		}
 
 		claims, err := getClaims(req.Context())
+
 		if err == nil {
 			if sub, ok := claims["sub"]; ok {
 				req.Header.Add(abstraction.HttpUserIdHeader, sub.(string))
