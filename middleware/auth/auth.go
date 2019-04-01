@@ -35,6 +35,10 @@ type AuthorizationEndpointOptions struct {
 //AuthorizationFilter is a middleware that handles authorization using
 //an OpendID Connect server
 func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
+	if opts.SecretProvider == nil {
+		opts.SecretProvider = oidc.NewOidcSecretProvider(discovery.NewClient(discovery.Options{opts.Authority}))
+	}
+
 	return func(endpoint abstraction.Endpoint, loggerFactory log.Factory) func(http.Handler) http.Handler {
 		cfg := AuthorizationEndpointOptions{}
 		if fl, ok := endpoint.Filters[AuthorizationFilterCode]; ok {
@@ -43,15 +47,10 @@ func AuthorizationFilter(opts AuthorizationOptions) middleware.Func {
 				loggerFactory(nil).Error("AuthorizationFilter: Cannot find or decode AuthorizationEndpointOptions for authorization filter", zap.Error(err))
 			}
 		}
-
-		if opts.SecretProvider == nil {
-			opts.SecretProvider = oidc.NewOidcSecretProvider(discovery.NewClient(discovery.Options{opts.Authority}))
-		}
 		audience := endpoint.OidcAudience
 		if cfg.Audience != "" {
 			audience = cfg.Audience
 		}
-
 		validator := oidc.NewJWTValidator(jwtRequest.OAuth2Extractor, opts.SecretProvider, audience, opts.Authority)
 
 		return func(next http.Handler) http.Handler {

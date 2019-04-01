@@ -1,6 +1,8 @@
 package reverseproxy
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/handler"
@@ -40,7 +42,18 @@ func modifyResponse(response *http.Response) error {
 func getDirector(targetUrl, targetUrlPath, targetUrlPrefix string, loggerFactory log.Factory) func(req *http.Request) {
 	return func(req *http.Request) {
 		logger := loggerFactory(req.Context())
-		routeContext := req.Context().Value(router.ContextRouteKey).(router.RouteContext)
+		routeContext, ok := router.GetRouteContextFromRequestContext(req.Context())
+		if !ok {
+			logger.Panic("routeContext not found")
+		}
+
+		claims, err := getClaims(req.Context())
+		if err == nil {
+			if sub, ok := claims["sub"]; ok {
+				req.Header.Add(abstraction.HttpUserIdHeader, sub.(string))
+			}
+		}
+
 		initial := req.URL.String()
 		target, err := url.Parse(targetUrl)
 		if err != nil {
@@ -75,6 +88,16 @@ func getDirector(targetUrl, targetUrlPath, targetUrlPrefix string, loggerFactory
 
 		logger.Debug(fmt.Sprintf("Forwarding request from %v to %v", initial, req.URL.String()))
 	}
+}
+
+//getClaims get the claims map stored in the context
+func getClaims(context context.Context) (map[string]interface{}, error) {
+	claims, ok := context.Value(abstraction.ContextClaimsKey).(map[string]interface{})
+	if !ok {
+		return nil, errors.New("claims not present or not authenticated")
+	}
+
+	return claims, nil
 }
 
 func replaceVarsInTarget(targetUrl string, vars map[string]string) string {
