@@ -162,7 +162,7 @@ func TestGatewayReverseProxy(t *testing.T) {
 
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, factory)
 	gate := gateway.NewGateway(&testConfig2, factory)
-	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport))
+	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport, nil, nil))
 	frontendProxy := httptest.NewServer(r.GetHandler(dynRouter))
 	defer frontendProxy.Close()
 
@@ -225,7 +225,7 @@ func BenchmarkGatewayReverseProxy(b *testing.B) {
 	factory := log.ZapLoggerFactory(zap.NewNop())
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, factory)
 	gate := gateway.NewGateway(&testConfig2, factory)
-	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport))
+	gateway.RegisterHandler(gate)(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport, nil, nil))
 
 	gateHandler := r.GetHandler(dynRouter)
 

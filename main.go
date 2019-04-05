@@ -73,7 +73,9 @@ func main() {
 	registerHandlerFunc(handler.EventPublisherHandlerType, handler.Compose(tracing.HandlerSpanWrapper("Nats Handler"))(natsHandler))
 	registerHandlerFunc(handler.ReverseProxyHandlerType, handler.Compose(
 		tracing.HandlerSpanWrapper("Reverse Proxy Handler"),
-	)(reverseproxy.NewReverseProxy(tracing.NewRoundTripperWithOpenTrancing())))
+	)(reverseproxy.NewReverseProxy(tracing.NewRoundTripperWithOpenTrancing(),
+		reverseproxy.AddUserIdToHeader,
+		reverseproxy.ClearCorsHeaders)))
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
@@ -136,6 +138,7 @@ func getConfig(logger *zap.Logger) *gateway.Config {
 	viper.AddConfigPath(".")
 	viper.SetConfigType("json")
 	viper.AutomaticEnv()
+	//viper.WatchConfig()
 
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
