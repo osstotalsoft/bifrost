@@ -4,7 +4,7 @@ Api gateway written in GO
 ## Architecture
 
 ### Configuration flow
-![](assets/requests_flow.svg)
+![](assets/configuration_flow.svg)
 
 ### Request flow
 ![](assets/requests_flow.svg)
