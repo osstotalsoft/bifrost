@@ -1,6 +1,8 @@
 # bifrost
 Api gateway written in GO
 
+![](assets/bifrostinline.png)
+
 ## Architecture
 
 ### Configuration flow
