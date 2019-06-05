@@ -1,6 +1,7 @@
 # ![](assets/bifrostinline.png)
 Api gateway written in GO
 
+
 ## Architecture
 
 ### Configuration flow
