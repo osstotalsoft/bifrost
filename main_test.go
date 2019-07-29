@@ -34,8 +34,7 @@ var (
 				DownstreamPath:       "",
 				ServiceName:          "users",
 				Methods:              nil,
-			},
-			{
+			}, {
 				UpstreamPathPrefix:   "/api/v1/partners",
 				UpstreamPath:         "",
 				DownstreamPathPrefix: "/partners",
@@ -143,6 +142,12 @@ var (
 			responseFromGateway: "testEncodingUrlResponse",
 			requestUrl:          "/dealers2/singWebApp%2F2137%2F6026a931-7c35",
 			backendUrl:          "/api/v2/singWebApp%2F2137%2F6026a931-7c35",
+		},
+		{
+			title:               "testEncodingUrl3",
+			responseFromGateway: "testEncodingUrlResponse",
+			requestUrl:          "/partners/131/RO 1734579",
+			backendUrl:          "/api/v1/partners/131/RO 1734579",
 		},
 		{
 			title:               "testEncodingUrl2",
