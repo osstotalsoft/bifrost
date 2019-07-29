@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/handler"
@@ -58,6 +59,11 @@ type UpdateEndpointFunc func(addRouteFunc AddRouteFunc, removeRouteFunc func(rou
 func AddService(gate *Gateway) AddServiceFunc {
 	return func(addRouteFunc AddRouteFunc) func(service servicediscovery.Service) {
 		return func(service servicediscovery.Service) {
+			err := validateService(gate, service)
+			if err != nil {
+				gate.loggerFactory(nil).Error("Gateway: invalid service ", zap.Error(err), zap.Any("service", service))
+				return
+			}
 			internalAddService(gate, service, addRouteFunc)
 		}
 	}
@@ -69,6 +75,11 @@ func UpdateService(gate *Gateway) UpdateEndpointFunc {
 		return func(oldService servicediscovery.Service, newService servicediscovery.Service) {
 			//removing routes
 			removeRoutes(gate, oldService, removeRouteFunc)
+			err := validateService(gate, newService)
+			if err != nil {
+				gate.loggerFactory(nil).Error("Gateway: invalid service ", zap.Error(err), zap.Any("service", newService))
+				return
+			}
 			//adding routes
 			internalAddService(gate, newService, addRouteFunc)
 		}
@@ -96,6 +107,14 @@ func RegisterHandler(gate *Gateway) func(key string, handlerFunc handler.Func) {
 	return func(key string, handlerFunc handler.Func) {
 		gate.handlers[key] = handlerFunc
 	}
+}
+
+func validateService(gate *Gateway, service servicediscovery.Service) error {
+	if service.Resource == "" {
+		return errors.New("invalid service resource name")
+	}
+
+	return nil
 }
 
 func internalAddService(gate *Gateway, service servicediscovery.Service, addRouteFunc AddRouteFunc) []abstraction.Endpoint {
