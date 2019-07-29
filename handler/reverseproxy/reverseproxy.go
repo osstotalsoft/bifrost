@@ -58,7 +58,7 @@ func getDirector(targetUrl, targetUrlPath, targetUrlPrefix string, loggerFactory
 		req.URL.Host = target.Host
 		req.Host = target.Host
 		if targetUrlPath == "" {
-			path := req.URL.RawPath //not escaped string
+			path := req.URL.RawPath //do not use escapedPath
 			if path == "" {         //if no escaping
 				path = req.URL.Path
 			}
