@@ -22,7 +22,7 @@ func TestTransformMessage(t *testing.T) {
 		UserIdClaimKey:     "user1",
 		CharismaIdClaimKey: 999,
 	}
-	var requestContext = context.WithValue(nil, abstraction.ContextClaimsKey, claimsMap)
+	var requestContext = context.WithValue(context.Background(), abstraction.ContextClaimsKey, claimsMap)
 	var response Message
 
 	// Act
@@ -89,7 +89,7 @@ func TestBuildResponse(t *testing.T) {
 		CorrelationIdKey: correlationId,
 		CommandIdKey:     commandId,
 	}}
-	var requestContext = context.WithValue(nil, abstraction.ContextClaimsKey, nil)
+	var requestContext = context.WithValue(context.Background(), abstraction.ContextClaimsKey, nil)
 	var expectedResponse, _ = json.Marshal(CommandResult{CommandId: commandId, CorrelationId: correlationId})
 
 	// Act

@@ -1,10 +1,10 @@
 package cors
 
 import (
-	"github.com/gorilla/handlers"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/bifrost/middleware"
+	"github.com/rs/cors"
 	"net/http"
 )
 
@@ -17,13 +17,25 @@ type Options struct {
 }
 
 // CORSFilter provides Cross-Origin Resource Sharing middleware.
-// using gorilla cors handlers
+// using RS cors handlers
 func CORSFilter(options Options) middleware.Func {
 	return func(endpoint abstraction.Endpoint, loggerFactory log.Factory) func(http.Handler) http.Handler {
-		originis := handlers.AllowedOrigins(options.AllowedOrigins)
-		methods := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS", "DELETE"})
-		headers := handlers.AllowedHeaders([]string{"Accept", "Accept-Language", "Content-Language", "Origin", "X-Requested-With", "Content-Type", "Authorization"})
 
-		return handlers.CORS(originis, methods, headers, handlers.AllowCredentials())
+		c := cors.New(cors.Options{
+			AllowedOrigins: options.AllowedOrigins,
+			AllowedMethods: []string{
+				http.MethodHead,
+				http.MethodGet,
+				http.MethodPost,
+				http.MethodPut,
+				http.MethodPatch,
+				http.MethodDelete,
+				http.MethodOptions,
+			},
+			AllowedHeaders:   []string{"*"},
+			AllowCredentials: true,
+		})
+
+		return c.Handler
 	}
 }

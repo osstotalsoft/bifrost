@@ -39,8 +39,8 @@ func TestCORSFilter(t *testing.T) {
 	options := Options{AllowedOrigins: []string{"http://www.example.com/"}}
 	CORSFilter(options)(endpoint, log.ZapLoggerFactory(logger))(testHandler).ServeHTTP(rr, r)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Fatalf("bad status: got %v want %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusNoContent {
+		t.Fatalf("bad status: got %v want %v", status, http.StatusNoContent)
 	}
 
 	header := rr.Header().Get(corsAllowHeadersHeader)
@@ -72,7 +72,7 @@ func BenchmarkCORSPreflight(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		h.ServeHTTP(rr, r)
-		if status := rr.Code; status != http.StatusOK {
+		if status := rr.Code; status != http.StatusNoContent {
 			b.Errorf("bad status: got %v want %v", status, http.StatusOK)
 		}
 	}

@@ -2,8 +2,8 @@ package auth
 
 import (
 	"context"
-	"github.com/dgrijalva/jwt-go"
-	jwtRequest "github.com/dgrijalva/jwt-go/request"
+	"github.com/golang-jwt/jwt/v4"
+	jwtRequest "github.com/golang-jwt/jwt/v4/request"
 	"github.com/mitchellh/mapstructure"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/log"
