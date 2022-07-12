@@ -12,8 +12,8 @@ func RecoveryHandler(loggerFactory log.Factory) func(inner http.Handler) http.Ha
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			defer func() {
 				if err := recover(); err != nil {
-					w.WriteHeader(http.StatusInternalServerError)
 					loggerFactory(req.Context()).Error("internal server error", zap.Any("error", err), zap.Stack("stack_trace"))
+					//w.WriteHeader(http.StatusInternalServerError)
 				}
 			}()
 
