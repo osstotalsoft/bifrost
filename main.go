@@ -19,7 +19,6 @@ import (
 	"github.com/uber/jaeger-client-go"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 	jaegerlog "github.com/uber/jaeger-client-go/log"
-	jaegerprom "github.com/uber/jaeger-lib/metrics/prometheus"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"io"
@@ -210,13 +209,13 @@ func setupJaeger(logger *zap.Logger) io.Closer {
 	}
 
 	jLogger := jaegerlog.StdLogger
-	jMetricsFactory := jaegerprom.New() //metrics.NullFactory
+	//jMetricsFactory := jaegerprom.New() //metrics.NullFactory
 	//jaeger.NewMetrics(factory, map[string]string{"lib": "jaeger"})
 
 	// Initialize tracer with a logger and a metrics factory
 	tracer, closer, _ := jconfig.NewTracer(
 		jaegercfg.Logger(jLogger),
-		jaegercfg.Metrics(jMetricsFactory),
+		//jaegercfg.Metrics(jMetricsFactory),
 	)
 	// Set the singleton opentracing.Tracer with the Jaeger tracer.
 	opentracing.SetGlobalTracer(tracer)
