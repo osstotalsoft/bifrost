@@ -9,7 +9,6 @@ import (
 	"github.com/osstotalsoft/bifrost/strutils"
 	"go.uber.org/zap"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strings"
 )
@@ -23,7 +22,7 @@ func NewReverseProxy(transport http.RoundTripper, requestModifier RequestModifie
 		//https://github.com/golang/go/issues/16012
 		//http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 
-		return &httputil.ReverseProxy{
+		return &ReverseProxy{
 			Director:       getDirector(endPoint.UpstreamURL, endPoint.UpstreamPath, endPoint.UpstreamPathPrefix, loggerFactory, requestModifier),
 			ModifyResponse: responseModifier,
 			Transport:      transport,
