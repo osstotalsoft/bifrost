@@ -9,15 +9,16 @@ import (
 	"github.com/osstotalsoft/bifrost/handler/reverseproxy"
 	"github.com/osstotalsoft/bifrost/httputils"
 	"github.com/osstotalsoft/bifrost/log"
+	"github.com/osstotalsoft/bifrost/middleware"
 	"github.com/osstotalsoft/bifrost/middleware/auth"
 	"github.com/osstotalsoft/bifrost/middleware/cors"
 	r "github.com/osstotalsoft/bifrost/router"
 	"github.com/osstotalsoft/bifrost/servicediscovery/provider/kubernetes"
+	"github.com/osstotalsoft/bifrost/tracing"
 	"github.com/spf13/viper"
 	"github.com/uber/jaeger-client-go"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 	jaegerlog "github.com/uber/jaeger-client-go/log"
-	"github.com/uber/jaeger-lib/metrics"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"io"
@@ -37,11 +38,11 @@ func main() {
 	cfg := getConfig(zlogger)
 	changeLogLevel(level, cfg.LogLevel)
 
-	loggerFactory := log.ZapLoggerFactory(zlogger.With(zap.String("service", "api gateway")))
+	loggerFactory := tracing.SpanLoggerFactory(zlogger.With(zap.String("service", "api gateway")))
 	logger := loggerFactory(nil)
 
-	//closer := setupJaeger(zlogger)
-	//defer closer.Close()
+	closer := setupJaeger(zlogger)
+	defer closer.Close()
 
 	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress, loggerFactory)
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, loggerFactory)
@@ -63,12 +64,17 @@ func main() {
 
 	//gateMiddlewareFunc(ratelimit.RateLimitingFilterCode, ratelimit.RateLimiting(ratelimit.MaxRequestLimit))
 
-	gateMiddlewareFunc(cors.CORSFilterCode, cors.CORSFilter(getCORSConfig(zlogger)))
-	gateMiddlewareFunc(auth.AuthorizationFilterCode, auth.AuthorizationFilter(getIdentityServerConfig(zlogger)))
+	gateMiddlewareFunc(cors.CORSFilterCode, middleware.Compose(tracing.MiddlewareSpanWrapper("CORS Filter"))(cors.CORSFilter(getCORSConfig(zlogger))))
+	gateMiddlewareFunc(auth.AuthorizationFilterCode, middleware.Compose(
+		tracing.MiddlewareSpanWrapper("Authorization Filter"),
+	)(auth.AuthorizationFilter(getIdentityServerConfig(zlogger))))
 
-	registerHandlerFunc(handler.EventPublisherHandlerType, natsHandler)
-	registerHandlerFunc(handler.ReverseProxyHandlerType, reverseproxy.NewReverseProxy(http.DefaultTransport,
-		reverseproxy.AddUserIdToHeader, reverseproxy.ClearCorsHeaders))
+	registerHandlerFunc(handler.EventPublisherHandlerType, handler.Compose(tracing.HandlerSpanWrapper("Nats Handler"))(natsHandler))
+	registerHandlerFunc(handler.ReverseProxyHandlerType, handler.Compose(
+		tracing.HandlerSpanWrapper("Reverse Proxy Handler"),
+	)(reverseproxy.NewReverseProxy(tracing.NewRoundTripperWithOpenTrancing(),
+		reverseproxy.AddUserIdToHeader,
+		reverseproxy.ClearCorsHeaders)))
 
 	addRouteFunc := r.AddRoute(dynRouter)
 	removeRouteFunc := r.RemoveRoute(dynRouter)
@@ -86,7 +92,7 @@ func main() {
 
 	err = gateway.ListenAndServe(gate, httputils.Compose(
 		httputils.RecoveryHandler(loggerFactory),
-		//tracing.SpanWrapper,
+		tracing.SpanWrapper,
 	)(r.GetHandler(dynRouter)))
 
 	if err != nil {
@@ -203,14 +209,13 @@ func setupJaeger(logger *zap.Logger) io.Closer {
 	}
 
 	jLogger := jaegerlog.StdLogger
-	jMetricsFactory := metrics.NullFactory
-	//jMetricsFactory := jaegerprom.New()
+	//jMetricsFactory := jaegerprom.New() //metrics.NullFactory
 	//jaeger.NewMetrics(factory, map[string]string{"lib": "jaeger"})
 
 	// Initialize tracer with a logger and a metrics factory
 	tracer, closer, _ := jconfig.NewTracer(
 		jaegercfg.Logger(jLogger),
-		jaegercfg.Metrics(jMetricsFactory),
+		//jaegercfg.Metrics(jMetricsFactory),
 	)
 	// Set the singleton opentracing.Tracer with the Jaeger tracer.
 	opentracing.SetGlobalTracer(tracer)

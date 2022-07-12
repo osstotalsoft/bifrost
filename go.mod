@@ -7,14 +7,13 @@ require (
 	github.com/gorilla/mux v1.7.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/nats-io/go-nats-streaming v0.4.0
-	github.com/opentracing-contrib/go-stdlib v1.0.1-0.20210923165142-fec77c82c616
+	github.com/opentracing-contrib/go-stdlib v1.0.0
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/osstotalsoft/oidc-jwt-go v0.0.0-20220214041528-1f0373671812
 	github.com/rs/cors v1.8.2
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/viper v1.3.2
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
-	github.com/uber/jaeger-lib v2.4.1+incompatible
 	go.uber.org/zap v1.21.0
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8
 	k8s.io/api v0.0.0-20190202010724-74b699b93c15
@@ -54,11 +53,12 @@ require (
 	github.com/pelletier/go-toml v1.2.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect
-	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/prometheus/procfs v0.0.0-20181204211112-1dc9a6cbc91a // indirect
 	github.com/spf13/afero v1.1.2 // indirect
 	github.com/spf13/cast v1.3.0 // indirect
 	github.com/spf13/jwalterweatherman v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.3 // indirect
+	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	go.etcd.io/bbolt v1.3.2 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
