@@ -5,6 +5,7 @@
   "in_cluster": false,
   "override_service_address": "http://kube-worker1:32344/",
   "log_level": "debug",
+  "service_namespace_prefix_filter": "",
   "metrics": {
     "enabled": true,
     "collection_time": "60s",

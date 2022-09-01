@@ -44,7 +44,7 @@ func main() {
 	closer := setupJaeger(zlogger)
 	defer closer.Close()
 
-	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress, loggerFactory)
+	provider := kubernetes.NewKubernetesServiceDiscoveryProvider(cfg.InCluster, cfg.OverrideServiceAddress, cfg.ServiceNamespacePrefixFilter, loggerFactory)
 	dynRouter := r.NewDynamicRouter(r.GorillaMuxRouteMatcher, loggerFactory)
 	//registry := in_memory_registry.NewInMemoryStore()
 

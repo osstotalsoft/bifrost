@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/mitchellh/mapstructure"
-	"github.com/nats-io/go-nats-streaming"
+	"github.com/nats-io/stan.go"
 	"github.com/osstotalsoft/bifrost/abstraction"
 	"github.com/osstotalsoft/bifrost/handler"
 	"github.com/osstotalsoft/bifrost/log"

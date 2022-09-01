@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"context"
 	"github.com/osstotalsoft/bifrost/log"
 	"github.com/osstotalsoft/bifrost/servicediscovery"
 	"go.uber.org/zap"
@@ -15,11 +16,12 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
-//Provider is a service discovery provider implementation, using Kubernetes
-type Provider struct {
+//KubeServiceProvider is a service discovery provider implementation, using Kubernetes
+type KubeServiceProvider struct {
 	onAddServiceHandlers    []servicediscovery.ServiceFunc
 	onRemoveServiceHandlers []servicediscovery.ServiceFunc
 	onUpdateServiceHandlers []func(old servicediscovery.Service, new servicediscovery.Service)
@@ -27,6 +29,7 @@ type Provider struct {
 	clientset               *kubernetes.Clientset
 	overrideServiceAddress  string
 	logger                  log.Logger
+	filterFunc              func(name string, namespace string) bool
 }
 
 const resourceLabelName = "api-gateway/resource"
@@ -34,7 +37,8 @@ const audienceLabelName = "api-gateway/oidc.audience"
 const securedLabelName = "api-gateway/secured"
 
 //NewKubernetesServiceDiscoveryProvider creates a new kube provider
-func NewKubernetesServiceDiscoveryProvider(inCluster bool, overrideServiceAddress string, loggerFactory log.Factory) *Provider {
+func NewKubernetesServiceDiscoveryProvider(inCluster bool, overrideServiceAddress string,
+	filterServiceNamespaceByPrefix string, loggerFactory log.Factory) *KubeServiceProvider {
 
 	logger := loggerFactory(nil)
 	logger = logger.With(zap.String("component", "kubernetes_service_provider"))
@@ -61,7 +65,7 @@ func NewKubernetesServiceDiscoveryProvider(inCluster bool, overrideServiceAddres
 		logger.Panic("KubernetesProvider: cannot connect to discovery provider", zap.Error(err))
 	}
 
-	return &Provider{
+	p := &KubeServiceProvider{
 		onAddServiceHandlers:    []servicediscovery.ServiceFunc{},
 		onRemoveServiceHandlers: []servicediscovery.ServiceFunc{},
 		onUpdateServiceHandlers: []func(old servicediscovery.Service, new servicediscovery.Service){},
@@ -70,6 +74,14 @@ func NewKubernetesServiceDiscoveryProvider(inCluster bool, overrideServiceAddres
 		overrideServiceAddress:  overrideServiceAddress,
 		logger:                  logger,
 	}
+
+	if filterServiceNamespaceByPrefix != "" {
+		p.filterFunc = func(name string, namespace string) bool {
+			return strings.HasPrefix(namespace, filterServiceNamespaceByPrefix)
+		}
+	}
+
+	return p
 }
 
 func outOfClusterConfig() (*rest.Config, error) {
@@ -79,45 +91,58 @@ func outOfClusterConfig() (*rest.Config, error) {
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
 
+func (provider *KubeServiceProvider) allowService(name string, namespace string) bool {
+	if provider.filterFunc != nil {
+		return provider.filterFunc(name, namespace)
+	}
+	return true
+}
+
 //Start starts the discovery process
-func Start(provider *Provider) *Provider {
-
+func Start(provider *KubeServiceProvider) *KubeServiceProvider {
 	watchlist := newServicesListWatch(provider.clientset.CoreV1().RESTClient())
-
 	_, controller := cache.NewInformer(watchlist, &corev1.Service{}, time.Second*0, cache.ResourceEventHandlerFuncs{
 		AddFunc:    addFunc(provider),
 		DeleteFunc: deleteFunc(provider),
 		UpdateFunc: updateFunc(provider),
 	})
-	go controller.Run(provider.stop)
 
+	go controller.Run(provider.stop)
 	return provider
 }
 
-func updateFunc(provider *Provider) func(oldObj, newObj interface{}) {
+func updateFunc(provider *KubeServiceProvider) func(oldObj, newObj interface{}) {
 	return func(oldObj, newObj interface{}) {
 		oldSrv := oldObj.(*corev1.Service)
 		newSrv := newObj.(*corev1.Service)
-		provider.logger.Info("KubernetesProvider: service updated", zap.Any("old_service", oldSrv), zap.Any("new_service", newSrv))
 
+		if !provider.allowService(newSrv.Name, newSrv.Namespace) {
+			return
+		}
+		provider.logger.Info("KubernetesProvider: service updated", zap.Any("old_service", oldSrv), zap.Any("new_service", newSrv))
 		callUpdateSubscribers(provider.onUpdateServiceHandlers,
 			mapToService(oldSrv, provider.overrideServiceAddress),
 			mapToService(newSrv, provider.overrideServiceAddress))
 	}
 }
 
-func deleteFunc(provider *Provider) func(obj interface{}) {
+func deleteFunc(provider *KubeServiceProvider) func(obj interface{}) {
 	return func(obj interface{}) {
 		srv := obj.(*corev1.Service)
+		if !provider.allowService(srv.Name, srv.Namespace) {
+			return
+		}
 		provider.logger.Info("KubernetesProvider: service deleted", zap.Any("service", srv))
-
 		callSubscribers(provider.onRemoveServiceHandlers, mapToService(srv, provider.overrideServiceAddress))
 	}
 }
 
-func addFunc(provider *Provider) func(obj interface{}) {
+func addFunc(provider *KubeServiceProvider) func(obj interface{}) {
 	return func(obj interface{}) {
 		srv := obj.(*corev1.Service)
+		if !provider.allowService(srv.Name, srv.Namespace) {
+			return
+		}
 		provider.logger.Info("KubernetesProvider: service added", zap.Any("service", srv))
 		callSubscribers(provider.onAddServiceHandlers, mapToService(srv, provider.overrideServiceAddress))
 	}
@@ -145,14 +170,13 @@ func mapToService(srv *corev1.Service, overrideServiceAddress string) servicedis
 // to apply modification to ListOptions with a field selector, a label selector, or any other desired options.
 func newServicesListWatch(c cache.Getter) *cache.ListWatch {
 	resource := "services"
-
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
 		options.LabelSelector = resourceLabelName
 		return c.Get().
 			//Namespace(namespace).
 			Resource(resource).
 			VersionedParams(&options, metav1.ParameterCodec).
-			Do().
+			Do(context.TODO()).
 			Get()
 	}
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
@@ -162,7 +186,7 @@ func newServicesListWatch(c cache.Getter) *cache.ListWatch {
 			//Namespace(namespace).
 			Resource(resource).
 			VersionedParams(&options, metav1.ParameterCodec).
-			Watch()
+			Watch(context.TODO())
 	}
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
 }
@@ -180,38 +204,38 @@ func callUpdateSubscribers(handlers []func(old servicediscovery.Service, new ser
 }
 
 //Stop stops the discovery process
-func Stop(provider *Provider) *Provider {
+func Stop(provider *KubeServiceProvider) *KubeServiceProvider {
 	close(provider.stop)
 	return provider
 }
 
 //SubscribeOnAddService registers some handlers to be called when a new service is found
-func SubscribeOnAddService(f servicediscovery.ServiceFunc) func(provider *Provider) *Provider {
-	return func(provider *Provider) *Provider {
+func SubscribeOnAddService(f servicediscovery.ServiceFunc) func(provider *KubeServiceProvider) *KubeServiceProvider {
+	return func(provider *KubeServiceProvider) *KubeServiceProvider {
 		provider.onAddServiceHandlers = append(provider.onAddServiceHandlers, f)
 		return provider
 	}
 }
 
 //SubscribeOnRemoveService registers some handlers to be called when a service is removed
-func SubscribeOnRemoveService(f servicediscovery.ServiceFunc) func(provider *Provider) *Provider {
-	return func(provider *Provider) *Provider {
+func SubscribeOnRemoveService(f servicediscovery.ServiceFunc) func(provider *KubeServiceProvider) *KubeServiceProvider {
+	return func(provider *KubeServiceProvider) *KubeServiceProvider {
 		provider.onRemoveServiceHandlers = append(provider.onRemoveServiceHandlers, f)
 		return provider
 	}
 }
 
 //SubscribeOnUpdateService registers some handlers to be called when a service gets updated
-func SubscribeOnUpdateService(f func(old servicediscovery.Service, new servicediscovery.Service)) func(provider *Provider) *Provider {
-	return func(provider *Provider) *Provider {
+func SubscribeOnUpdateService(f func(old servicediscovery.Service, new servicediscovery.Service)) func(provider *KubeServiceProvider) *KubeServiceProvider {
+	return func(provider *KubeServiceProvider) *KubeServiceProvider {
 		provider.onUpdateServiceHandlers = append(provider.onUpdateServiceHandlers, f)
 		return provider
 	}
 }
 
 //Compose composes provider functions
-func Compose(funcs ...func(p *Provider) *Provider) func(p *Provider) *Provider {
-	return func(p *Provider) *Provider {
+func Compose(funcs ...func(p *KubeServiceProvider) *KubeServiceProvider) func(p *KubeServiceProvider) *KubeServiceProvider {
+	return func(p *KubeServiceProvider) *KubeServiceProvider {
 		for _, f := range funcs {
 			p = f(p)
 		}

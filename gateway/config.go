@@ -2,15 +2,16 @@ package gateway
 
 //Config is an object loaded from config.json
 type Config struct {
-	Endpoints              []EndpointConfig `mapstructure:"endpoints"`
-	Port                   int              `mapstructure:"port"`
-	Version                string           `mapstructure:"version"`
-	Name                   string           `mapstructure:"name"`
-	UpstreamPathPrefix     string           `mapstructure:"upstream_path_prefix"`
-	DownstreamPathPrefix   string           `mapstructure:"downstream_path_prefix"`
-	LogLevel               string           `mapstructure:"log_level"`
-	InCluster              bool             `mapstructure:"in_cluster"`
-	OverrideServiceAddress string           `mapstructure:"override_service_address"`
+	Endpoints                    []EndpointConfig `mapstructure:"endpoints"`
+	Port                         int              `mapstructure:"port"`
+	Version                      string           `mapstructure:"version"`
+	Name                         string           `mapstructure:"name"`
+	UpstreamPathPrefix           string           `mapstructure:"upstream_path_prefix"`
+	DownstreamPathPrefix         string           `mapstructure:"downstream_path_prefix"`
+	LogLevel                     string           `mapstructure:"log_level"`
+	InCluster                    bool             `mapstructure:"in_cluster"`
+	OverrideServiceAddress       string           `mapstructure:"override_service_address"`
+	ServiceNamespacePrefixFilter string           `mapstructure:"service_namespace_prefix_filter"`
 }
 
 //EndpointConfig is a configuration detail from config.json
