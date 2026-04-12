@@ -127,7 +127,7 @@ func badRequest(logger log.Logger, err error, msg string, writer http.ResponseWr
 
 //connect opens a streaming NATS connection
 func connect(natsUrl, clientId, clusterId string, logger log.Logger) (stan.Conn, CloseConnectionFunc, error) {
-	nc, err := stan.Connect(clusterId, clientId+uuid.NewV4().String(), stan.NatsURL(natsUrl))
+	nc, err := stan.Connect(clusterId, clientId+uuid.Must(uuid.NewV4()).String(), stan.NatsURL(natsUrl))
 	if err != nil {
 		//logger.Error("cannot connect to nats server", zap.Error(err))
 		return nc, nil, err

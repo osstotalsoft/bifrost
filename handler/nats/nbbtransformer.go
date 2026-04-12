@@ -53,15 +53,15 @@ func NBBTransformMessage(messageContext messageContext, requestContext context.C
 		return nil, errors.New(CharismaIdClaimKey + " claim not found")
 	}
 
-	correlationId := uuid.NewV4()
-	commandId := uuid.NewV4()
+	correlationId := uuid.Must(uuid.NewV4())
+	commandId := uuid.Must(uuid.NewV4())
 	now := time.Now()
 
 	headers := map[string]interface{}{
 		UserIdKey:         userId,
 		CharismaUserIdKey: charismaUserId,
 		CorrelationIdKey:  correlationId,
-		MessageIdKey:      uuid.NewV4(),
+		MessageIdKey:      uuid.Must(uuid.NewV4()),
 		SourceKey:         messageContext.Source,
 		PublishTimeKey:    now,
 	}

@@ -56,7 +56,7 @@ func AddRoute(router *dynamicRouter) func(path, pathPrefix string, methods []str
 			PathPrefix: pathPrefix,
 			Methods:    methods,
 			handler:    handler,
-			UID:        uuid.NewV4().String(),
+			UID:        uuid.Must(uuid.NewV4()).String(),
 		}
 
 		route.matcher = router.routeMatcher(route)

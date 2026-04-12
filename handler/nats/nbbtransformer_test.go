@@ -82,8 +82,8 @@ func TestTransformMessage(t *testing.T) {
 func TestBuildResponse(t *testing.T) {
 
 	// Arrange
-	var correlationId = uuid.NewV4()
-	var commandId = uuid.NewV4()
+	var correlationId = uuid.Must(uuid.NewV4())
+	var commandId = uuid.Must(uuid.NewV4())
 
 	var messageContext = messageContext{Headers: map[string]interface{}{
 		CorrelationIdKey: correlationId,
